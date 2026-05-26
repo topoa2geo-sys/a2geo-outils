@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>A2GEO — Retour BO Terrain</title>
+<style>
+  :root {
+    --bleu:   #003399;
+    --bleu2:  #0055CC;
+    --vert:   #1a7a1a;
+    --rouge:  #cc2200;
+    --orange: #cc6600;
+    --gris:   #f2f4f8;
+    --gris2:  #dde2ec;
+    --blanc:  #ffffff;
+    --text:   #1a1a2e;
+    --small:  13px;
+    --r:      12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: var(--gris);
+         color: var(--text); min-height: 100vh; }
+
+  /* ── En-tête ── */
+  header { background: var(--bleu); color: white; padding: 18px 20px 14px;
+           display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header p  { font-size: 12px; opacity: .7; margin-top: 2px; }
+
+  /* ── Sections ── */
+  .card { background: white; border-radius: var(--r); margin: 14px; padding: 18px;
+          box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .card h2 { font-size: 15px; font-weight: 700; color: var(--bleu); margin-bottom: 12px; }
+
+  /* ── Champ dossier ── */
+  .dossier-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 160px; font-size: 18px; font-weight: 700;
+                     color: var(--bleu2); border: 2px solid var(--gris2);
+                     border-radius: 8px; padding: 12px 14px;
+                     letter-spacing: 1px; outline: none; }
+  input[type=text]:focus { border-color: var(--bleu2); }
+
+  /* ── Boutons ── */
+  .btn { display: inline-flex; align-items: center; gap: 8px;
+         border: none; border-radius: 10px; padding: 14px 20px;
+         font-size: 16px; font-weight: 700; cursor: pointer;
+         transition: opacity .15s, transform .1s; -webkit-appearance: none; }
+  .btn:active { opacity: .8; transform: scale(.97); }
+  .btn-primary   { background: var(--bleu2); color: white; }
+  .btn-success   { background: var(--vert);  color: white; }
+  .btn-warning   { background: var(--orange); color: white; }
+  .btn-secondary { background: var(--gris2); color: var(--text); font-weight: 600; }
+  .btn:disabled  { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* ── Liste de fichiers ── */
+  .fichier-item { border: 1.5px solid var(--gris2); border-radius: 10px;
+                  padding: 12px 14px; margin-bottom: 8px; background: var(--gris);
+                  display: flex; align-items: center; gap: 10px; }
+  .fichier-item.selectionne { border-color: var(--bleu2); background: #eef3ff; }
+  .fichier-item .nom { flex: 1; font-size: 14px; word-break: break-all; }
+  .fichier-item .type-badge { font-size: 11px; font-weight: 700; padding: 3px 8px;
+                               border-radius: 20px; white-space: nowrap; }
+  .badge-tableau  { background: #ddeeff; color: #003399; }
+  .badge-prepa    { background: #ddffd4; color: #1a7a1a; }
+  .badge-dmpc     { background: #fff0dd; color: #cc6600; }
+  .badge-autre    { background: #eeeeee; color: #555; }
+  .fichier-item .check { width: 28px; height: 28px; border-radius: 50%;
+                          border: 2px solid var(--gris2); background: white;
+                          display: flex; align-items: center; justify-content: center;
+                          font-size: 16px; cursor: pointer; flex-shrink: 0; }
+  .fichier-item.selectionne .check { background: var(--bleu2); border-color: var(--bleu2);
+                                      color: white; }
+
+  /* ── Résultat ── */
+  .resultat-item { padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
+                   font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .res-ok  { background: #d4f4d4; color: #1a5a1a; }
+  .res-err { background: #fdd;    color: #aa1100; }
+  .res-skip{ background: #f4f4f4; color: #888; }
+
+  /* ── Auth ── */
+  #ecran-auth { text-align: center; padding: 30px 20px; }
+  #ecran-auth .logo { font-size: 48px; margin-bottom: 16px; }
+  #ecran-auth p { color: #666; font-size: 14px; margin: 8px 0 24px; line-height: 1.5; }
+
+  /* ── Spinner ── */
+  .spinner { display: inline-block; width: 22px; height: 22px;
+             border: 3px solid rgba(255,255,255,.4); border-top-color: white;
+             border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+  .mt8 { margin-top: 8px; }
+  .mt14 { margin-top: 14px; }
+  .info-txt { font-size: 12px; color: #888; margin-top: 6px; }
+  .sep { border: none; border-top: 1px solid var(--gris2); margin: 14px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>A2GEO — Retour BO</h1>
+    <p>Renommage des documents signés → Google Drive</p>
+  </div>
+</header>
+
+<!-- ══════════ ÉCRAN AUTH ══════════ -->
+<div id="ecran-auth" class="card">
+  <div class="logo">🔐</div>
+  <h2 style="text-align:center;font-size:18px;">Connexion requise</h2>
+  <p>Connectez-vous avec le compte Google qui a accès au Drive A2GEO<br>
+     <strong>(topoa2geo@gmail.com ou votre compte partagé)</strong></p>
+  <button class="btn btn-primary" onclick="lancerAuth()" style="width:100%;justify-content:center;font-size:18px;padding:18px;">
+    🔑&nbsp; Se connecter avec Google
+  </button>
+  <p class="info-txt" style="margin-top:14px;" id="auth-erreur"></p>
+</div>
+
+<!-- ══════════ ÉCRAN PRINCIPAL ══════════ -->
+<div id="ecran-principal" class="hidden">
+
+  <!-- Saisie dossier -->
+  <div class="card">
+    <h2>📁 Dossier affaire</h2>
+    <div class="dossier-row">
+      <input type="text" id="inp-dossier" placeholder="2026_099"
+             maxlength="8" autocomplete="off" autocorrect="off"
+             autocapitalize="characters" spellcheck="false"
+             oninput="this.value=this.value.replace(/[^0-9_]/g,'')">
+      <button class="btn btn-primary" onclick="chargerFichiers()" id="btn-charger">
+        🔍&nbsp;Charger
+      </button>
+    </div>
+    <p class="info-txt">Format : AAAA_NNN &nbsp;(ex : 2026_099)</p>
+    <p id="lbl-dossier-err" style="color:var(--rouge);font-size:13px;margin-top:6px;"></p>
+  </div>
+
+  <!-- Liste fichiers -->
+  <div class="card hidden" id="carte-fichiers">
+    <h2 id="titre-fichiers">Fichiers détectés</h2>
+    <p class="info-txt" style="margin-bottom:10px;">
+      Sélectionnez les fichiers signés à renommer et envoyer dans <strong>3-SCANS_terrain</strong>
+    </p>
+    <div id="liste-fichiers"></div>
+    <hr class="sep">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-success" id="btn-retour" onclick="lancerRetourBO()" disabled>
+        ✅&nbsp; Retour BO — Renommer &amp; Envoyer
+      </button>
+      <button class="btn btn-secondary" onclick="toutSelectionner()">
+        ☑&nbsp; Tout sélectionner
+      </button>
+    </div>
+  </div>
+
+  <!-- Résultats -->
+  <div class="card hidden" id="carte-resultats">
+    <h2>📋 Résultat</h2>
+    <div id="liste-resultats"></div>
+    <button class="btn btn-secondary mt14" onclick="reinitialiser()">
+      🔄&nbsp; Nouveau dossier
+    </button>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     CONFIGURATION — à remplir avec votre client ID Web
+     ════════════════════════════════════════════════════ -->
+<script>
+// ─── ⚙️  CONFIGURATION ───────────────────────────────────────────────────────
+// Client ID OAuth2 "Application Web" depuis Google Cloud Console
+// (Projet A2GEO_DRIVE → APIs & Services → Identifiants → + Créer → Web)
+const CLIENT_ID = "678062926272-lj2s8ort922ot91feke3ld7plni8bobb.apps.googleusercontent.com";
+
+// Dossier racine Drive contenant les dossiers AAAA_NNN
+// Laisser vide = chercher dans tout Drive ; ou mettre l'ID du dossier parent
+const DRIVE_PARENT_ID = "";   // ex: "1AbCdEfGhIjKlMnOpQrStUvWx"
+
+// Nom du sous-dossier de destination sur Drive
+const DOSSIER_DESTINATION = "3-SCANS_terrain";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SCOPES = "https://www.googleapis.com/auth/drive";
+let tokenClient;
+let accessToken = null;
+let fichiersDrive = [];
+let dossierAffaireId = null;
+let selectionnes = new Set();
+
+// ── Règles de renommage ─────────────────────────────────────────────────────
+function classerFichier(nom) {
+  const n = nom.toLowerCase();
+  if (n.includes("tableau") && (n.includes("bo") || n.includes("bornage")))
+    return { type: "tableau",  badge: "badge-tableau", label: "Tableau BO" };
+  if (n.includes("prepa") && n.includes("bo"))
+    return { type: "prepa",    badge: "badge-prepa",   label: "Prépa BO" };
+  if (n.includes("dmpc") || n.includes("pouvoir"))
+    return { type: "dmpc",     badge: "badge-dmpc",    label: "Pouvoir DMPC" };
+  return   { type: "autre",    badge: "badge-autre",   label: "Autre" };
+}
+
+function nouveauNom(nomOriginal, type) {
+  const ext = nomOriginal.lastIndexOf(".") > 0
+    ? nomOriginal.slice(nomOriginal.lastIndexOf("."))
+    : "";
+  const stem = nomOriginal.slice(0, nomOriginal.length - ext.length);
+  // Retirer un éventuel _sign déjà présent pour éviter le doublon
+  const stemPropre = stem.replace(/_sign(_a-verifier)?$/i, "");
+
+  if (type === "tableau") return stemPropre + "_sign" + ext;
+  if (type === "prepa")   return "BO_terrain_sign" + ext;
+  if (type === "dmpc")    return stemPropre + "_sign_a-verifier" + ext;
+  return stemPropre + "_sign" + ext;
+}
+
+// ── Auth Google Identity Services ──────────────────────────────────────────
+function lancerAuth() {
+  if (CLIENT_ID === "678062926272-lj2s8ort922ot91feke3ld7plni8bobb.apps.googleusercontent.com") {
+    document.getElementById("auth-erreur").textContent =
+      "⚠️ Configurez d'abord CLIENT_ID dans le fichier HTML (voir instructions).";
+    return;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) {
+        document.getElementById("auth-erreur").textContent = "Erreur : " + resp.error;
+        return;
+      }
+      accessToken = resp.access_token;
+      document.getElementById("ecran-auth").classList.add("hidden");
+      document.getElementById("ecran-principal").classList.remove("hidden");
+      document.getElementById("inp-dossier").focus();
+    },
+  });
+  tokenClient.requestAccessToken({ prompt: "consent" });
+}
+
+// ── Helpers Drive API ────────────────────────────────────────────────────────
+async function driveGet(url) {
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + accessToken } });
+  if (!r.ok) throw new Error("Drive API " + r.status + " : " + await r.text());
+  return r.json();
+}
+
+async function chercherId(nom, parentId) {
+  let q = `name='${nom}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  if (parentId) q += ` and '${parentId}' in parents`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`;
+  const data = await driveGet(url);
+  return data.files.length ? data.files[0].id : null;
+}
+
+async function creerDossier(nom, parentId) {
+  const meta = { name: nom, mimeType: "application/vnd.google-apps.folder",
+                 parents: parentId ? [parentId] : [] };
+  const r = await fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
+    body: JSON.stringify(meta)
+  });
+  if (!r.ok) throw new Error("Création dossier échouée");
+  return (await r.json()).id;
+}
+
+async function copierFichier(fileId, nouveauNomFichier, destFolderId) {
+  const meta = { name: nouveauNomFichier, parents: [destFolderId] };
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/copy`, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
+    body: JSON.stringify(meta)
+  });
+  if (!r.ok) throw new Error("Copie échouée : " + await r.text());
+  return r.json();
+}
+
+// ── Charger la liste des fichiers ────────────────────────────────────────────
+async function chargerFichiers() {
+  const num = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  const errEl = document.getElementById("lbl-dossier-err");
+  if (!/^\d{4}_\d{3}$/.test(num)) {
+    errEl.textContent = "⚠️ Format invalide — ex : 2026_099"; return;
+  }
+  errEl.textContent = "";
+  const btn = document.getElementById("btn-charger");
+  btn.innerHTML = '<span class="spinner" style="border-top-color:white;border-color:rgba(0,0,0,.2)"></span>';
+  btn.disabled = true;
+
+  try {
+    dossierAffaireId = await chercherId(num, DRIVE_PARENT_ID || null);
+    if (!dossierAffaireId) {
+      errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
+    }
+
+    // Lister récursivement tous les fichiers non-dossiers dans AAAA_NNN
+    const q = `'${dossierAffaireId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size)&pageSize=200`;
+    const data = await driveGet(url);
+    fichiersDrive = data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+
+    afficherFichiers(num, fichiersDrive);
+  } catch(e) {
+    errEl.textContent = "Erreur : " + e.message;
+  } finally {
+    btn.innerHTML = "🔍&nbsp;Charger"; btn.disabled = false;
+  }
+}
+
+function afficherFichiers(num, fichiers) {
+  const carte = document.getElementById("carte-fichiers");
+  const liste = document.getElementById("liste-fichiers");
+  carte.classList.remove("hidden");
+  document.getElementById("carte-resultats").classList.add("hidden");
+  document.getElementById("titre-fichiers").textContent =
+    `Fichiers PDF dans ${num} (${fichiers.length})`;
+  liste.innerHTML = "";
+  selectionnes.clear();
+
+  if (!fichiers.length) {
+    liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun PDF trouvé dans ce dossier Drive.</p>';
+    document.getElementById("btn-retour").disabled = true;
+    return;
+  }
+
+  fichiers.forEach(f => {
+    const info  = classerFichier(f.name);
+    const item  = document.createElement("div");
+    item.className = "fichier-item selectionne";
+    item.dataset.id = f.id;
+    selectionnes.add(f.id);
+
+    item.innerHTML = `
+      <div class="check" onclick="toggleSelection('${f.id}', this, event.currentTarget.closest('.fichier-item'))">✓</div>
+      <div class="nom">
+        <div style="font-weight:600;">${f.name}</div>
+        <div style="font-size:12px;color:#888;margin-top:2px;">
+          → <strong>${nouveauNom(f.name, info.type)}</strong>
+        </div>
+      </div>
+      <span class="type-badge ${info.badge}">${info.label}</span>`;
+    liste.appendChild(item);
+  });
+
+  document.getElementById("btn-retour").disabled = false;
+}
+
+function toggleSelection(id, checkEl, itemEl) {
+  if (selectionnes.has(id)) {
+    selectionnes.delete(id);
+    itemEl.classList.remove("selectionne");
+    checkEl.textContent = "";
+  } else {
+    selectionnes.add(id);
+    itemEl.classList.add("selectionne");
+    checkEl.textContent = "✓";
+  }
+  document.getElementById("btn-retour").disabled = selectionnes.size === 0;
+}
+
+function toutSelectionner() {
+  document.querySelectorAll(".fichier-item").forEach(item => {
+    const id = item.dataset.id;
+    selectionnes.add(id);
+    item.classList.add("selectionne");
+    item.querySelector(".check").textContent = "✓";
+  });
+  document.getElementById("btn-retour").disabled = false;
+}
+
+// ── Retour BO : renommer et copier dans 3-SCANS_terrain ────────────────────
+async function lancerRetourBO() {
+  const btn = document.getElementById("btn-retour");
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Envoi en cours…';
+  btn.disabled = true;
+
+  const carteRes = document.getElementById("carte-resultats");
+  const listeRes = document.getElementById("liste-resultats");
+  carteRes.classList.remove("hidden");
+  listeRes.innerHTML = "";
+
+  try {
+    // Créer ou trouver le dossier 3-SCANS_terrain
+    let destId = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+    if (!destId) destId = await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
+
+    let ok = 0, err = 0;
+    for (const f of fichiersDrive) {
+      if (!selectionnes.has(f.id)) {
+        ajouterResultat(listeRes, "res-skip", "⏭", f.name, "non sélectionné");
+        continue;
+      }
+      const info  = classerFichier(f.name);
+      const cible = nouveauNom(f.name, info.type);
+      try {
+        await copierFichier(f.id, cible, destId);
+        ajouterResultat(listeRes, "res-ok", "✅", f.name, `→ ${cible}`);
+        ok++;
+      } catch(e) {
+        ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
+        err++;
+      }
+    }
+
+    // Résumé
+    const resume = document.createElement("div");
+    resume.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
+    resume.textContent = `${ok} fichier(s) envoyé(s) dans ${DOSSIER_DESTINATION}` +
+      (err ? `  —  ${err} erreur(s)` : "  ✅");
+    listeRes.appendChild(resume);
+
+  } catch(e) {
+    ajouterResultat(listeRes, "res-err", "❌", "Erreur générale", e.message);
+  } finally {
+    btn.innerHTML = "✅&nbsp; Retour BO — Renommer &amp; Envoyer";
+    btn.disabled = false;
+  }
+}
+
+function ajouterResultat(container, cls, icon, nom, detail) {
+  const d = document.createElement("div");
+  d.className = "resultat-item " + cls;
+  d.innerHTML = `<span style="font-size:18px;">${icon}</span>
+    <div><div style="font-weight:600;font-size:13px;">${nom}</div>
+    <div style="font-size:12px;opacity:.8;">${detail}</div></div>`;
+  container.appendChild(d);
+}
+
+function reinitialiser() {
+  document.getElementById("inp-dossier").value = "";
+  document.getElementById("carte-fichiers").classList.add("hidden");
+  document.getElementById("carte-resultats").classList.add("hidden");
+  document.getElementById("lbl-dossier-err").textContent = "";
+  fichiersDrive = []; selectionnes.clear(); dossierAffaireId = null;
+  document.getElementById("inp-dossier").focus();
+}
+</script>
+
+<!-- Google Identity Services (chargé en dernier) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+</body>
+</html>
