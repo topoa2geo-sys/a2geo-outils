@@ -97,6 +97,21 @@
   .mt14 { margin-top: 14px; }
   .info-txt { font-size: 12px; color: #888; margin-top: 6px; }
   .sep { border: none; border-top: 1px solid var(--gris2); margin: 14px 0; }
+
+  /* ── Onglets mode ── */
+  .tabs { display: flex; margin: 0 14px; gap: 6px; }
+  .tab-btn { flex: 1; padding: 12px 8px; border: none; border-radius: 10px 10px 0 0;
+             font-size: 14px; font-weight: 700; cursor: pointer; background: var(--gris2);
+             color: #666; transition: background .15s, color .15s; }
+  .tab-btn.actif { background: white; color: var(--bleu); box-shadow: 0 -2px 6px rgba(0,0,0,.08); }
+
+  /* ── Items terrain ── */
+  .terrain-item { border: 1.5px solid var(--gris2); border-radius: 10px;
+                  padding: 11px 13px; margin-bottom: 8px; background: var(--gris);
+                  display: flex; align-items: center; gap: 10px; }
+  .terrain-item.ouvert { border-color: var(--vert); background: #f0fff4; }
+  .terrain-item .nom-terrain { flex: 1; font-size: 13px; font-weight: 600;
+                                word-break: break-all; }
 </style>
 </head>
 <body>
@@ -139,8 +154,34 @@
     <p id="lbl-dossier-err" style="color:var(--rouge);font-size:13px;margin-top:6px;"></p>
   </div>
 
+  <!-- Onglets mode (apparaît après chargement) -->
+  <div class="tabs hidden" id="zone-tabs">
+    <button class="tab-btn actif" id="tab-terrain" onclick="basculerOnglet('terrain')">
+      🏕️ Préparer terrain
+    </button>
+    <button class="tab-btn" id="tab-retour" onclick="basculerOnglet('retour')">
+      📤 Retour BO
+    </button>
+  </div>
+
+  <!-- ══ ONGLET TERRAIN : ouvrir les docs dans Adobe ══ -->
+  <div class="card hidden" id="carte-terrain" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
+    <h2>🏕️ Documents à faire signer sur le terrain</h2>
+    <p class="info-txt" style="margin-bottom:12px;">
+      Appuyez sur <strong>Ouvrir</strong> pour chaque document — Adobe le met en cache
+      et il sera disponible <strong>hors connexion</strong> sur le terrain.
+    </p>
+    <div id="liste-terrain"></div>
+    <hr class="sep">
+    <button class="btn btn-primary" onclick="ouvrirTousAdobe()" id="btn-tout-ouvrir"
+            style="width:100%;justify-content:center;">
+      📂&nbsp; Tout ouvrir dans Adobe
+    </button>
+  </div>
+
+  <!-- ══ ONGLET RETOUR BO : renommer les scans signés ══ -->
   <!-- Liste fichiers -->
-  <div class="card hidden" id="carte-fichiers">
+  <div class="card hidden" id="carte-fichiers" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
     <h2 id="titre-fichiers">Fichiers détectés</h2>
     <p class="info-txt" style="margin-bottom:10px;">
       Sélectionnez les fichiers signés à renommer et envoyer dans <strong>3-SCANS_terrain</strong>
@@ -189,8 +230,10 @@ const SCOPES = "https://www.googleapis.com/auth/drive";
 let tokenClient;
 let accessToken = null;
 let fichiersDrive = [];
+let fichiersTerrain = [];
 let dossierAffaireId = null;
 let selectionnes = new Set();
+let ongletActif = "terrain";
 
 // ── Règles de renommage ─────────────────────────────────────────────────────
 function classerFichier(nom) {
@@ -280,6 +323,102 @@ async function copierFichier(fileId, nouveauNomFichier, destFolderId) {
   return r.json();
 }
 
+// ── Onglets ──────────────────────────────────────────────────────────────────
+function basculerOnglet(nom) {
+  ongletActif = nom;
+  document.getElementById("tab-terrain").classList.toggle("actif", nom === "terrain");
+  document.getElementById("tab-retour").classList.toggle("actif", nom === "retour");
+  document.getElementById("carte-terrain").classList.toggle("hidden", nom !== "terrain");
+  const cf = document.getElementById("carte-fichiers");
+  // carte-fichiers visible seulement si onglet retour ET fichiers chargés
+  if (nom === "retour" && fichiersDrive.length >= 0 && dossierAffaireId) {
+    cf.classList.remove("hidden");
+  } else {
+    cf.classList.add("hidden");
+  }
+  document.getElementById("carte-resultats").classList.add("hidden");
+}
+
+// ── Terrain : charger fichiers de 2-prepa_BO ────────────────────────────────
+async function chargerFichiersTerrain(parentId) {
+  // Chercher le sous-dossier 2-prepa_BO
+  const prepaBOId = await chercherId("2-prepa_BO", parentId);
+  if (!prepaBOId) return [];
+  const q = `'${prepaBOId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,size)&pageSize=200`;
+  const data = await driveGet(url);
+  return data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+}
+
+function afficherFichiersTerrain(fichiers) {
+  const liste = document.getElementById("liste-terrain");
+  liste.innerHTML = "";
+  if (!fichiers.length) {
+    liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun PDF trouvé dans 2-prepa_BO.</p>';
+    document.getElementById("btn-tout-ouvrir").disabled = true;
+    return;
+  }
+  fichiers.forEach(f => {
+    const info = classerFichier(f.name);
+    const taille = f.size ? Math.round(f.size / 1024) + " Ko" : "";
+    const item = document.createElement("div");
+    item.className = "terrain-item";
+    item.id = `terrain-item-${f.id}`;
+    item.innerHTML = `
+      <div class="nom-terrain">
+        <div>${f.name}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille}</div>
+      </div>
+      <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
+      <button class="btn btn-primary" id="btn-adobe-${f.id}"
+              onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
+              style="padding:10px 14px;font-size:13px;flex-shrink:0;">
+        📄&nbsp;Ouvrir
+      </button>`;
+    liste.appendChild(item);
+  });
+}
+
+async function ouvrirDansAdobe(fileId, fileName) {
+  const btn = document.getElementById(`btn-adobe-${fileId}`);
+  const item = document.getElementById(`terrain-item-${fileId}`);
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(255,255,255,.3);border-top-color:white;"></span>';
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: "Bearer " + accessToken } }
+    );
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+    btn.innerHTML = "✅ Ouvert";
+    btn.style.background = "var(--vert)";
+    if (item) item.classList.add("ouvert");
+  } catch(e) {
+    btn.disabled = false; btn.innerHTML = orig;
+    alert("Erreur : " + e.message);
+  }
+}
+
+async function ouvrirTousAdobe() {
+  const btnTout = document.getElementById("btn-tout-ouvrir");
+  btnTout.disabled = true;
+  for (const f of fichiersTerrain) {
+    const btn = document.getElementById(`btn-adobe-${f.id}`);
+    if (btn && !btn.style.background.includes("vert") && !btn.disabled) {
+      await ouvrirDansAdobe(f.id, f.name);
+      await new Promise(r => setTimeout(r, 1200)); // pause entre ouvertures
+    }
+  }
+  btnTout.disabled = false;
+}
+
 // ── Charger la liste des fichiers ────────────────────────────────────────────
 async function chargerFichiers() {
   const num = document.getElementById("inp-dossier").value.trim().toUpperCase();
@@ -298,13 +437,28 @@ async function chargerFichiers() {
       errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
     }
 
-    // Lister récursivement tous les fichiers non-dossiers dans AAAA_NNN
-    const q = `'${dossierAffaireId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size)&pageSize=200`;
-    const data = await driveGet(url);
-    fichiersDrive = data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+    // Charger en parallèle : fichiers terrain (2-prepa_BO) + fichiers retour BO
+    const [terrain, retour] = await Promise.all([
+      chargerFichiersTerrain(dossierAffaireId),
+      (async () => {
+        const q = `'${dossierAffaireId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size)&pageSize=200`;
+        const data = await driveGet(url);
+        return data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+      })()
+    ]);
 
+    fichiersTerrain = terrain;
+    fichiersDrive   = retour;
+
+    // Afficher onglets + contenu
+    document.getElementById("zone-tabs").classList.remove("hidden");
+    afficherFichiersTerrain(fichiersTerrain);
     afficherFichiers(num, fichiersDrive);
+
+    // Démarrer sur l'onglet terrain si des fichiers prepa_BO existent
+    basculerOnglet(fichiersTerrain.length ? "terrain" : "retour");
+
   } catch(e) {
     errEl.textContent = "Erreur : " + e.message;
   } finally {
@@ -433,10 +587,13 @@ function ajouterResultat(container, cls, icon, nom, detail) {
 
 function reinitialiser() {
   document.getElementById("inp-dossier").value = "";
+  document.getElementById("zone-tabs").classList.add("hidden");
+  document.getElementById("carte-terrain").classList.add("hidden");
   document.getElementById("carte-fichiers").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("lbl-dossier-err").textContent = "";
-  fichiersDrive = []; selectionnes.clear(); dossierAffaireId = null;
+  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear(); dossierAffaireId = null;
+  ongletActif = "terrain";
   document.getElementById("inp-dossier").focus();
 }
 </script>
