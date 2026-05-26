@@ -173,10 +173,19 @@
     </p>
     <div id="liste-terrain"></div>
     <hr class="sep">
-    <button class="btn btn-primary" onclick="ouvrirTousAdobe()" id="btn-tout-ouvrir"
-            style="width:100%;justify-content:center;">
-      📂&nbsp; Tout ouvrir dans Adobe
+    <button class="btn btn-success" onclick="telechargerZip()" id="btn-zip"
+            style="width:100%;justify-content:center;font-size:17px;padding:16px;">
+      📦&nbsp; Tout télécharger en ZIP
     </button>
+    <p class="info-txt" style="margin-top:8px;text-align:center;">
+      Dezippez dans Fichiers iOS → ouvrez chaque PDF dans Adobe Acrobat
+    </p>
+    <div id="zip-progress" class="hidden" style="margin-top:12px;">
+      <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
+        <div id="zip-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+      </div>
+      <p id="zip-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+    </div>
   </div>
 
   <!-- ══ ONGLET RETOUR BO : renommer les scans signés ══ -->
@@ -406,17 +415,68 @@ async function ouvrirDansAdobe(fileId, fileName) {
   }
 }
 
-async function ouvrirTousAdobe() {
-  const btnTout = document.getElementById("btn-tout-ouvrir");
-  btnTout.disabled = true;
-  for (const f of fichiersTerrain) {
-    const btn = document.getElementById(`btn-adobe-${f.id}`);
-    if (btn && !btn.style.background.includes("vert") && !btn.disabled) {
-      await ouvrirDansAdobe(f.id, f.name);
-      await new Promise(r => setTimeout(r, 1200)); // pause entre ouvertures
+async function telechargerZip() {
+  if (!fichiersTerrain.length) return;
+  const btn       = document.getElementById("btn-zip");
+  const progZone  = document.getElementById("zip-progress");
+  const barre     = document.getElementById("zip-barre");
+  const label     = document.getElementById("zip-label");
+  const num       = document.getElementById("inp-dossier").value.trim().toUpperCase();
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Préparation…';
+  progZone.classList.remove("hidden");
+
+  try {
+    const zip = new JSZip();
+    const total = fichiersTerrain.length;
+
+    for (let i = 0; i < total; i++) {
+      const f = fichiersTerrain[i];
+      label.textContent = `Téléchargement ${i + 1}/${total} — ${f.name}`;
+      barre.style.width = Math.round((i / total) * 90) + "%";
+
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`,
+        { headers: { Authorization: "Bearer " + accessToken } }
+      );
+      if (!r.ok) throw new Error(`Erreur ${r.status} pour ${f.name}`);
+      const blob = await r.blob();
+      zip.file(f.name, blob);
+
+      // Marquer le fichier comme téléchargé dans la liste
+      const item = document.getElementById(`terrain-item-${f.id}`);
+      if (item) item.classList.add("ouvert");
+      const btnF = document.getElementById(`btn-adobe-${f.id}`);
+      if (btnF) { btnF.innerHTML = "✅"; btnF.style.background = "var(--vert)"; }
     }
+
+    label.textContent = "Génération du ZIP…";
+    barre.style.width = "95%";
+
+    const contenu = await zip.generateAsync({ type: "blob",
+      compression: "STORE" }); // STORE = pas de compression, plus rapide pour des PDFs
+    barre.style.width = "100%";
+
+    // Déclencher le téléchargement
+    const url = URL.createObjectURL(contenu);
+    const a   = document.createElement("a");
+    a.href     = url;
+    a.download = `terrain_${num}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+
+    label.textContent = `✅ ZIP prêt — ${total} fichier(s)`;
+    btn.innerHTML = "✅&nbsp; ZIP téléchargé";
+    btn.style.background = "var(--vert)";
+
+  } catch(e) {
+    label.textContent = "❌ Erreur : " + e.message;
+    btn.disabled = false;
+    btn.innerHTML = "📦&nbsp; Tout télécharger en ZIP";
   }
-  btnTout.disabled = false;
 }
 
 // ── Charger la liste des fichiers ────────────────────────────────────────────
@@ -598,8 +658,10 @@ function reinitialiser() {
 }
 </script>
 
-<!-- Google Identity Services (chargé en dernier) -->
+<!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- JSZip — création du ZIP côté navigateur -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 </body>
 </html>
