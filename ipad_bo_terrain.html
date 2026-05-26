@@ -220,7 +220,7 @@ function nouveauNom(nomOriginal, type) {
 
 // ── Auth Google Identity Services ──────────────────────────────────────────
 function lancerAuth() {
-  if (CLIENT_ID === "678062926272-lj2s8ort922ot91feke3ld7plni8bobb.apps.googleusercontent.com") {
+  if (CLIENT_ID.startsWith("VOTRE_")) {
     document.getElementById("auth-erreur").textContent =
       "⚠️ Configurez d'abord CLIENT_ID dans le fichier HTML (voir instructions).";
     return;
