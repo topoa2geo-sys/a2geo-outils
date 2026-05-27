@@ -527,12 +527,20 @@ async function chargerFichiers() {
       errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
     }
 
-    // Charger en parallèle : fichiers terrain (2-prepa_BO) + fichiers retour BO
+    // Charger en parallèle : fichiers terrain (2-prepa_BO) + sous-dossiers pour retour BO
     const [terrain, retour] = await Promise.all([
       chargerFichiersTerrain(dossierAffaireId),
       (async () => {
-        const q = `'${dossierAffaireId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size)&pageSize=200`;
+        // 1) Trouver tous les sous-dossiers immédiats de AAAA_NNN
+        const subQ = `'${dossierAffaireId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+        const subData = await driveGet(
+          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQ)}&fields=files(id,name)&pageSize=50`
+        );
+        // 2) Construire le filtre : racine + tous sous-dossiers
+        const tousIds = [dossierAffaireId, ...subData.files.map(f => f.id)];
+        const parentFilter = tousIds.map(id => `'${id}' in parents`).join(" or ");
+        const q = `(${parentFilter}) and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,parents)&pageSize=500`;
         const data = await driveGet(url);
         return data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
       })()
@@ -562,7 +570,7 @@ function afficherFichiers(num, fichiers) {
   carte.classList.remove("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("titre-fichiers").textContent =
-    `Fichiers PDF dans ${num} (${fichiers.length})`;
+    `Fichiers PDF dans ${num} et sous-dossiers (${fichiers.length})`;
   liste.innerHTML = "";
   selectionnes.clear();
 
