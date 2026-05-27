@@ -244,6 +244,35 @@ let dossierAffaireId = null;
 let selectionnes = new Set();
 let ongletActif = "terrain";
 
+// ── Cache token en sessionStorage ────────────────────────────────────────────
+function _sauvegarderToken(resp) {
+  accessToken = resp.access_token;
+  const expiry = Date.now() + ((resp.expires_in || 3600) * 1000);
+  try {
+    sessionStorage.setItem("a2geo_token",  accessToken);
+    sessionStorage.setItem("a2geo_expiry", String(expiry));
+  } catch(e) {}
+}
+function _tokenValide() {
+  try {
+    const tok    = sessionStorage.getItem("a2geo_token");
+    const expiry = parseInt(sessionStorage.getItem("a2geo_expiry") || "0");
+    return !!(tok && expiry > Date.now() + 60000);
+  } catch(e) { return false; }
+}
+function _afficherEcranPrincipal() {
+  document.getElementById("ecran-auth").classList.add("hidden");
+  document.getElementById("ecran-principal").classList.remove("hidden");
+  document.getElementById("inp-dossier").focus();
+}
+// Au démarrage : si token encore valide, passer directement à l'écran principal
+window.addEventListener("load", () => {
+  if (_tokenValide()) {
+    accessToken = sessionStorage.getItem("a2geo_token");
+    _afficherEcranPrincipal();
+  }
+});
+
 // ── Règles de renommage ─────────────────────────────────────────────────────
 function classerFichier(nom) {
   const n = nom.toLowerCase();
@@ -285,13 +314,13 @@ function lancerAuth() {
         document.getElementById("auth-erreur").textContent = "Erreur : " + resp.error;
         return;
       }
-      accessToken = resp.access_token;
-      document.getElementById("ecran-auth").classList.add("hidden");
-      document.getElementById("ecran-principal").classList.remove("hidden");
-      document.getElementById("inp-dossier").focus();
+      _sauvegarderToken(resp);
+      _afficherEcranPrincipal();
     },
   });
-  tokenClient.requestAccessToken({ prompt: "consent" });
+  // prompt: "" = pas d'écran de consentement si déjà autorisé
+  // prompt: "select_account" seulement si on veut forcer le choix de compte
+  tokenClient.requestAccessToken({ prompt: "" });
 }
 
 // ── Helpers Drive API ────────────────────────────────────────────────────────
@@ -487,6 +516,7 @@ async function chargerFichiers() {
     errEl.textContent = "⚠️ Format invalide — ex : 2026_099"; return;
   }
   errEl.textContent = "";
+  _resetBoutonZip();
   const btn = document.getElementById("btn-charger");
   btn.innerHTML = '<span class="spinner" style="border-top-color:white;border-color:rgba(0,0,0,.2)"></span>';
   btn.disabled = true;
@@ -654,7 +684,19 @@ function reinitialiser() {
   document.getElementById("lbl-dossier-err").textContent = "";
   fichiersDrive = []; fichiersTerrain = []; selectionnes.clear(); dossierAffaireId = null;
   ongletActif = "terrain";
+  _resetBoutonZip();
   document.getElementById("inp-dossier").focus();
+}
+
+function _resetBoutonZip() {
+  const btn = document.getElementById("btn-zip");
+  if (!btn) return;
+  btn.disabled = false;
+  btn.innerHTML = "📦&nbsp; Tout télécharger en ZIP";
+  btn.style.background = "";
+  document.getElementById("zip-progress").classList.add("hidden");
+  document.getElementById("zip-barre").style.width = "0%";
+  document.getElementById("zip-label").textContent = "";
 }
 </script>
 
