@@ -107,11 +107,18 @@
 
   /* ── Items terrain ── */
   .terrain-item { border: 1.5px solid var(--gris2); border-radius: 10px;
-                  padding: 11px 13px; margin-bottom: 8px; background: var(--gris);
+                  padding: 11px 13px; margin-bottom: 6px; background: white;
                   display: flex; align-items: center; gap: 10px; }
+  .terrain-item.obligatoire { border-color: #99aadd; background: #f4f7ff; }
   .terrain-item.ouvert { border-color: var(--vert); background: #f0fff4; }
   .terrain-item .nom-terrain { flex: 1; font-size: 13px; font-weight: 600;
                                 word-break: break-all; }
+  .section-terrain { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: .5px; color: #888; margin: 10px 0 4px; }
+  .terrain-cb { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--gris2);
+                background: white; display: flex; align-items: center; justify-content: center;
+                cursor: pointer; flex-shrink: 0; font-size: 14px; }
+  .terrain-cb.coche { background: var(--bleu2); border-color: var(--bleu2); color: white; }
 </style>
 </head>
 <body>
@@ -122,7 +129,7 @@
     <p>Téléchargement · Travail hors connexion · Renommage fichiers terrain</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
-    <div style="font-weight:700;">v2.5</div>
+    <div style="font-weight:700;">v2.6</div>
     <div id="version-date">—</div>
   </div>
 </header>
@@ -170,25 +177,45 @@
 
   <!-- ══ ONGLET TERRAIN : ouvrir les docs dans Adobe ══ -->
   <div class="card hidden" id="carte-terrain" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
-    <h2>🏕️ Documents à faire signer sur le terrain</h2>
-    <p class="info-txt" style="margin-bottom:12px;">
-      Appuyez sur <strong>Ouvrir</strong> pour chaque document — Adobe le met en cache
-      et il sera disponible <strong>hors connexion</strong> sur le terrain.
-    </p>
-    <div id="liste-terrain"></div>
-    <hr class="sep">
-    <button class="btn btn-success" onclick="telechargerZip()" id="btn-zip"
-            style="width:100%;justify-content:center;font-size:17px;padding:16px;">
-      📦&nbsp; Tout télécharger en ZIP
-    </button>
-    <p class="info-txt" style="margin-top:8px;text-align:center;">
-      Dezippez dans Fichiers iOS → ouvrez chaque PDF dans Adobe Acrobat
-    </p>
-    <div id="zip-progress" class="hidden" style="margin-top:12px;">
-      <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
-        <div id="zip-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+    <h2>🏕️ Documents à préparer pour le terrain</h2>
+
+    <!-- Option A : avec connexion → Adobe direct -->
+    <div style="background:#eef3ff;border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:6px;">
+        📶 Avec connexion — Ouvrir dans Adobe Reader
       </div>
-      <p id="zip-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+      <p class="info-txt" style="margin-bottom:10px;">
+        Les fichiers <strong>obligatoires</strong> sont pré-sélectionnés.
+        Cochez les <strong>pouvoirs DMPC</strong> si nécessaire, puis appuyez sur le bouton.
+      </p>
+      <div id="liste-terrain"></div>
+      <button class="btn btn-primary" onclick="ouvrirSelectionAdobe()" id="btn-ouvrir-selection"
+              style="width:100%;justify-content:center;margin-top:10px;" disabled>
+        📄&nbsp; Ouvrir la sélection dans Adobe
+      </button>
+      <p id="adobe-seq-info" class="info-txt hidden" style="margin-top:8px;text-align:center;color:var(--bleu2);"></p>
+    </div>
+
+    <!-- Option B : sans connexion → ZIP -->
+    <div style="background:#f0fff4;border-radius:10px;padding:14px;">
+      <div style="font-weight:700;color:var(--vert);font-size:14px;margin-bottom:6px;">
+        ✈️ Sans connexion — Télécharger le ZIP avant de partir
+      </div>
+      <p class="info-txt" style="margin-bottom:10px;">
+        Télécharge tous les fichiers. Sur iPad : déplacez le ZIP vers<br>
+        <strong>Mes fichiers › a2geo › <span class="num-dossier-lbl"></span></strong><br>
+        puis dézippez manuellement.
+      </p>
+      <button class="btn btn-success" onclick="telechargerZip()" id="btn-zip"
+              style="width:100%;justify-content:center;">
+        📦&nbsp; Télécharger tout en ZIP
+      </button>
+      <div id="zip-progress" class="hidden" style="margin-top:12px;">
+        <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
+          <div id="zip-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+        </div>
+        <p id="zip-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+      </div>
     </div>
   </div>
 
@@ -399,33 +426,124 @@ async function chargerFichiersTerrain(parentId) {
   return data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
 }
 
+let selectionnesTerrain = new Set();
+
 function afficherFichiersTerrain(fichiers) {
   const liste = document.getElementById("liste-terrain");
   liste.innerHTML = "";
+  selectionnesTerrain.clear();
+
+  // Mettre le numéro de dossier dans le label ZIP
+  const num = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  document.querySelectorAll(".num-dossier-lbl").forEach(el => el.textContent = num);
+
   if (!fichiers.length) {
-    liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun PDF trouvé dans 2-prepa_BO.</p>';
-    document.getElementById("btn-tout-ouvrir").disabled = true;
+    liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun fichier trouvé dans 2-prepa_BO.</p>';
+    document.getElementById("btn-ouvrir-selection").disabled = true;
     return;
   }
-  fichiers.forEach(f => {
-    const info = classerFichier(f.name);
-    const taille = f.size ? Math.round(f.size / 1024) + " Ko" : "";
-    const item = document.createElement("div");
-    item.className = "terrain-item";
-    item.id = `terrain-item-${f.id}`;
-    item.innerHTML = `
-      <div class="nom-terrain">
-        <div>${f.name}</div>
-        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille}</div>
-      </div>
-      <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
-      <button class="btn btn-primary" id="btn-adobe-${f.id}"
-              onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
-              style="padding:10px 14px;font-size:13px;flex-shrink:0;">
-        📄&nbsp;Ouvrir
-      </button>`;
-    liste.appendChild(item);
+
+  // Classer par priorité : obligatoires (tableau+prepa) → DMPC → autres
+  const obligs = fichiers.filter(f => {
+    const t = classerFichier(f.name).type;
+    return t === "tableau" || t === "prepa";
   });
+  const dmpc   = fichiers.filter(f => classerFichier(f.name).type === "dmpc");
+  const autres = fichiers.filter(f => classerFichier(f.name).type === "autre");
+
+  function ajouterSection(titre, groupe, defaultCoche, estObligatoire) {
+    if (!groupe.length) return;
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = titre;
+    liste.appendChild(sep);
+
+    groupe.forEach(f => {
+      const info   = classerFichier(f.name);
+      const taille = f.size ? Math.round(f.size / 1024) + " Ko" : "";
+      if (defaultCoche) selectionnesTerrain.add(f.id);
+
+      const item = document.createElement("div");
+      item.className = "terrain-item" + (estObligatoire ? " obligatoire" : "");
+      item.id = `terrain-item-${f.id}`;
+
+      if (estObligatoire) {
+        // Pas de checkbox — toujours sélectionné
+        item.innerHTML = `
+          <div class="terrain-cb coche" title="Obligatoire">✓</div>
+          <div class="nom-terrain">
+            <div>${f.name}</div>
+            <div style="font-size:11px;color:#aaa;">${taille}</div>
+          </div>
+          <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
+          <button class="btn btn-primary" id="btn-adobe-${f.id}"
+                  onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
+                  style="padding:9px 12px;font-size:13px;flex-shrink:0;">📄</button>`;
+      } else {
+        item.innerHTML = `
+          <div class="terrain-cb ${defaultCoche ? "coche" : ""}" id="cb-${f.id}"
+               onclick="toggleTerrain('${f.id}')">
+            ${defaultCoche ? "✓" : ""}
+          </div>
+          <div class="nom-terrain">
+            <div>${f.name}</div>
+            <div style="font-size:11px;color:#aaa;">${taille}</div>
+          </div>
+          <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
+          <button class="btn btn-primary" id="btn-adobe-${f.id}"
+                  onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
+                  style="padding:9px 12px;font-size:13px;flex-shrink:0;">📄</button>`;
+      }
+      liste.appendChild(item);
+    });
+  }
+
+  ajouterSection("✅ Obligatoires", obligs, true,  true);
+  ajouterSection("📋 Pouvoirs DMPC", dmpc,  true,  false);
+  ajouterSection("📎 Autres",        autres, false, false);
+
+  document.getElementById("btn-ouvrir-selection").disabled = selectionnesTerrain.size === 0;
+}
+
+function toggleTerrain(id) {
+  const cb = document.getElementById(`cb-${id}`);
+  if (selectionnesTerrain.has(id)) {
+    selectionnesTerrain.delete(id);
+    cb.classList.remove("coche");
+    cb.textContent = "";
+  } else {
+    selectionnesTerrain.add(id);
+    cb.classList.add("coche");
+    cb.textContent = "✓";
+  }
+  document.getElementById("btn-ouvrir-selection").disabled = selectionnesTerrain.size === 0;
+}
+
+// Ouvre les fichiers sélectionnés un par un dans Adobe (séquentiel avec prompt entre chaque)
+async function ouvrirSelectionAdobe() {
+  const btn = document.getElementById("btn-ouvrir-selection");
+  const info = document.getElementById("adobe-seq-info");
+  const selectionListe = fichiersTerrain.filter(f => selectionnesTerrain.has(f.id));
+  if (!selectionListe.length) return;
+
+  btn.disabled = true;
+  info.classList.remove("hidden");
+  let idx = 0;
+
+  async function ouvrirSuivant() {
+    if (idx >= selectionListe.length) {
+      info.textContent = `✅ ${selectionListe.length} fichier(s) ouverts dans Adobe`;
+      btn.disabled = false;
+      return;
+    }
+    const f = selectionListe[idx];
+    info.textContent = `Ouverture ${idx + 1}/${selectionListe.length} — ${f.name}`;
+    await ouvrirDansAdobe(f.id, f.name);
+    idx++;
+    // Pause pour laisser iOS traiter l'ouverture
+    setTimeout(ouvrirSuivant, 1500);
+  }
+  ouvrirSuivant();
 }
 
 async function ouvrirDansAdobe(fileId, fileName) {
@@ -726,7 +844,7 @@ function reinitialiser() {
   document.getElementById("carte-fichiers").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("lbl-dossier-err").textContent = "";
-  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear();
+  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear(); selectionnesTerrain.clear();
   dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
   _resetBoutonZip();
