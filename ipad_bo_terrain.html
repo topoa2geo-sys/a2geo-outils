@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>A2GEO — Retour BO Terrain</title>
+<title>A2GEO — Tablette Prépa BO — Retour BO</title>
 <style>
   :root {
     --bleu:   #003399;
@@ -118,12 +118,12 @@
 
 <header>
   <div style="flex:1;">
-    <h1>A2GEO — Retour BO</h1>
-    <p>Renommage des documents signés → Google Drive</p>
+    <h1>A2GEO — Tablette Prépa BO — Retour BO</h1>
+    <p>Téléchargement · Travail hors connexion · Renommage fichiers terrain</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
     <div style="font-weight:700;">v2.5</div>
-    <div>27/05/2026 19:15</div>
+    <div id="version-date">—</div>
   </div>
 </header>
 
@@ -272,6 +272,12 @@ function _afficherEcranPrincipal() {
 }
 // Au démarrage : si token encore valide, passer directement à l'écran principal
 window.addEventListener("load", () => {
+  // Date MAJ = date de modification du fichier sur le serveur GitHub Pages
+  const d = new Date(document.lastModified);
+  const pad = n => String(n).padStart(2, "0");
+  document.getElementById("version-date").textContent =
+    `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
   if (_tokenValide()) {
     accessToken = sessionStorage.getItem("a2geo_token");
     _afficherEcranPrincipal();
