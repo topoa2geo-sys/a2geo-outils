@@ -117,9 +117,13 @@
 <body>
 
 <header>
-  <div>
+  <div style="flex:1;">
     <h1>A2GEO — Retour BO</h1>
     <p>Renommage des documents signés → Google Drive</p>
+  </div>
+  <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
+    <div style="font-weight:700;">v2.5</div>
+    <div>27/05/2026 19:15</div>
   </div>
 </header>
 
@@ -193,13 +197,13 @@
   <div class="card hidden" id="carte-fichiers" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
     <h2 id="titre-fichiers">Fichiers détectés</h2>
     <p class="info-txt" style="margin-bottom:10px;">
-      Sélectionnez les fichiers signés à renommer et envoyer dans <strong>3-SCANS_terrain</strong>
+      Vérifiez et corrigez les noms proposés si besoin, puis appliquez le renommage.
     </p>
     <div id="liste-fichiers"></div>
     <hr class="sep">
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button class="btn btn-success" id="btn-retour" onclick="lancerRetourBO()" disabled>
-        ✅&nbsp; Retour BO — Renommer &amp; Envoyer
+        ✅&nbsp; Appliquer les renommages
       </button>
       <button class="btn btn-secondary" onclick="toutSelectionner()">
         ☑&nbsp; Tout sélectionner
@@ -241,6 +245,7 @@ let accessToken = null;
 let fichiersDrive = [];
 let fichiersTerrain = [];
 let dossierAffaireId = null;
+let dossierScanId    = null;
 let selectionnes = new Set();
 let ongletActif = "terrain";
 
@@ -527,27 +532,21 @@ async function chargerFichiers() {
       errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
     }
 
-    // Charger en parallèle : fichiers terrain (2-prepa_BO) + sous-dossiers pour retour BO
-    const [terrain, retour] = await Promise.all([
+    // Charger en parallèle : terrain (2-prepa_BO) + retour BO (3-SCANS_terrain uniquement)
+    const [terrain, scanResult] = await Promise.all([
       chargerFichiersTerrain(dossierAffaireId),
       (async () => {
-        // 1) Trouver tous les sous-dossiers immédiats de AAAA_NNN
-        const subQ = `'${dossierAffaireId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-        const subData = await driveGet(
-          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQ)}&fields=files(id,name)&pageSize=50`
-        );
-        // 2) Construire le filtre : racine + tous sous-dossiers
-        const tousIds = [dossierAffaireId, ...subData.files.map(f => f.id)];
-        const parentFilter = tousIds.map(id => `'${id}' in parents`).join(" or ");
-        const q = `(${parentFilter}) and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,parents)&pageSize=500`;
+        dossierScanId = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+        if (!dossierScanId) return [];
+        const q = `'${dossierScanId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,size)&pageSize=200`;
         const data = await driveGet(url);
-        return data.files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+        return data.files; // toutes extensions
       })()
     ]);
 
     fichiersTerrain = terrain;
-    fichiersDrive   = retour;
+    fichiersDrive   = scanResult;
 
     // Afficher onglets + contenu
     document.getElementById("zone-tabs").classList.remove("hidden");
@@ -569,33 +568,54 @@ function afficherFichiers(num, fichiers) {
   const liste = document.getElementById("liste-fichiers");
   carte.classList.remove("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
-  document.getElementById("titre-fichiers").textContent =
-    `Fichiers PDF dans ${num} et sous-dossiers (${fichiers.length})`;
+
+  const titre = dossierScanId
+    ? `📂 ${DOSSIER_DESTINATION} (${fichiers.length} fichier${fichiers.length > 1 ? "s" : ""})`
+    : `⚠️ Dossier ${DOSSIER_DESTINATION} introuvable`;
+  document.getElementById("titre-fichiers").textContent = titre;
   liste.innerHTML = "";
   selectionnes.clear();
 
+  if (!dossierScanId) {
+    liste.innerHTML = `<p style="color:var(--orange);font-size:14px;">
+      Le dossier <strong>${DOSSIER_DESTINATION}</strong> n'existe pas encore dans ce dossier affaire.<br>
+      Déposez d'abord vos fichiers signés dans ce dossier Drive.
+    </p>`;
+    document.getElementById("btn-retour").disabled = true;
+    return;
+  }
+
   if (!fichiers.length) {
-    liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun PDF trouvé dans ce dossier Drive.</p>';
+    liste.innerHTML = `<p style="color:#888;font-size:14px;">
+      Aucun fichier trouvé dans <strong>${DOSSIER_DESTINATION}</strong>.<br>
+      Déposez vos fichiers signés dans ce dossier Drive puis rechargez.
+    </p>`;
     document.getElementById("btn-retour").disabled = true;
     return;
   }
 
   fichiers.forEach(f => {
-    const info  = classerFichier(f.name);
-    const item  = document.createElement("div");
+    const info     = classerFichier(f.name);
+    const propose  = nouveauNom(f.name, info.type);
+    const item     = document.createElement("div");
     item.className = "fichier-item selectionne";
     item.dataset.id = f.id;
     selectionnes.add(f.id);
 
     item.innerHTML = `
       <div class="check" onclick="toggleSelection('${f.id}', this, event.currentTarget.closest('.fichier-item'))">✓</div>
-      <div class="nom">
-        <div style="font-weight:600;">${f.name}</div>
-        <div style="font-size:12px;color:#888;margin-top:2px;">
-          → <strong>${nouveauNom(f.name, info.type)}</strong>
+      <div class="nom" style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#999;margin-bottom:4px;word-break:break-all;">${f.name}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:13px;color:#555;flex-shrink:0;">→</span>
+          <input id="inp-rename-${f.id}" type="text" value="${propose.replace(/"/g,'&quot;')}"
+                 style="flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--bleu2);
+                        border:1.5px solid var(--gris2);border-radius:6px;padding:5px 8px;outline:none;"
+                 onfocus="this.style.borderColor='var(--bleu2)'"
+                 onblur="this.style.borderColor='var(--gris2)'">
         </div>
       </div>
-      <span class="type-badge ${info.badge}">${info.label}</span>`;
+      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;margin-top:2px;">${info.label}</span>`;
     liste.appendChild(item);
   });
 
@@ -625,10 +645,10 @@ function toutSelectionner() {
   document.getElementById("btn-retour").disabled = false;
 }
 
-// ── Retour BO : renommer et copier dans 3-SCANS_terrain ────────────────────
+// ── Retour BO : renommer les fichiers sur place dans 3-SCANS_terrain ────────
 async function lancerRetourBO() {
   const btn = document.getElementById("btn-retour");
-  btn.innerHTML = '<span class="spinner"></span>&nbsp;Envoi en cours…';
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Renommage…';
   btn.disabled = true;
 
   const carteRes = document.getElementById("carte-resultats");
@@ -636,22 +656,32 @@ async function lancerRetourBO() {
   carteRes.classList.remove("hidden");
   listeRes.innerHTML = "";
 
+  let ok = 0, err = 0, skip = 0;
   try {
-    // Créer ou trouver le dossier 3-SCANS_terrain
-    let destId = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
-    if (!destId) destId = await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
-
-    let ok = 0, err = 0;
     for (const f of fichiersDrive) {
       if (!selectionnes.has(f.id)) {
         ajouterResultat(listeRes, "res-skip", "⏭", f.name, "non sélectionné");
-        continue;
+        skip++; continue;
       }
-      const info  = classerFichier(f.name);
-      const cible = nouveauNom(f.name, info.type);
+      // Récupérer le nom saisi par l'utilisateur (ou le nom proposé par défaut)
+      const inp = document.getElementById(`inp-rename-${f.id}`);
+      const nomCible = (inp ? inp.value.trim() : "") || nouveauNom(f.name, classerFichier(f.name).type);
+
+      if (nomCible === f.name) {
+        ajouterResultat(listeRes, "res-skip", "⏭", f.name, "nom inchangé");
+        skip++; continue;
+      }
       try {
-        await copierFichier(f.id, cible, destId);
-        ajouterResultat(listeRes, "res-ok", "✅", f.name, `→ ${cible}`);
+        // PATCH : renomme le fichier sur place dans Drive (pas de déplacement)
+        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+          method: "PATCH",
+          headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: nomCible })
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        ajouterResultat(listeRes, "res-ok", "✅", f.name, `→ ${nomCible}`);
+        // Mettre à jour le nom affiché dans la liste
+        if (inp) { inp.value = nomCible; }
         ok++;
       } catch(e) {
         ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
@@ -659,18 +689,18 @@ async function lancerRetourBO() {
       }
     }
 
-    // Résumé
     const resume = document.createElement("div");
     resume.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
-    resume.textContent = `${ok} fichier(s) envoyé(s) dans ${DOSSIER_DESTINATION}` +
-      (err ? `  —  ${err} erreur(s)` : "  ✅");
+    resume.textContent = `${ok} fichier(s) renommé(s)` +
+      (skip ? `  —  ${skip} ignoré(s)` : "") +
+      (err  ? `  —  ${err} erreur(s)` : "  ✅");
     listeRes.appendChild(resume);
 
   } catch(e) {
     ajouterResultat(listeRes, "res-err", "❌", "Erreur générale", e.message);
   } finally {
-    btn.innerHTML = "✅&nbsp; Retour BO — Renommer &amp; Envoyer";
-    btn.disabled = false;
+    btn.innerHTML = "✅&nbsp; Appliquer les renommages";
+    btn.disabled = selectionnes.size === 0;
   }
 }
 
@@ -690,7 +720,8 @@ function reinitialiser() {
   document.getElementById("carte-fichiers").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("lbl-dossier-err").textContent = "";
-  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear(); dossierAffaireId = null;
+  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear();
+  dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
   _resetBoutonZip();
   document.getElementById("inp-dossier").focus();
