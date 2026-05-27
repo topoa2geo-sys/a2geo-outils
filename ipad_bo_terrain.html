@@ -129,7 +129,7 @@
     <p>Téléchargement · Travail hors connexion · Renommage fichiers terrain</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
-    <div style="font-weight:700;">v2.6</div>
+    <div style="font-weight:700;">v2.8</div>
     <div id="version-date">—</div>
   </div>
 </header>
@@ -234,6 +234,9 @@
       </button>
       <button class="btn btn-secondary" onclick="toutSelectionner()">
         ☑&nbsp; Tout sélectionner
+      </button>
+      <button class="btn btn-secondary" onclick="toutDeselectionner()">
+        🔲&nbsp; Tout désélectionner
       </button>
     </div>
   </div>
@@ -496,6 +499,24 @@ function afficherFichiersTerrain(fichiers) {
       }
       liste.appendChild(item);
     });
+  }
+
+  // ── Vérification des documents obligatoires ──────────────────────────────
+  const aTableau = obligs.some(f => classerFichier(f.name).type === "tableau");
+  const aPrepa   = obligs.some(f => classerFichier(f.name).type === "prepa");
+  const manquants = [];
+  if (!aTableau) manquants.push("⚠️ Tableau de bornage manquant");
+  if (!aPrepa)   manquants.push("⚠️ Plan prépa bornage manquant");
+
+  if (manquants.length) {
+    const alerte = document.createElement("div");
+    alerte.style.cssText = `
+      background:#fff3cd; border:2px solid #cc6600; border-radius:10px;
+      padding:12px 14px; margin-bottom:10px; font-size:14px; font-weight:700;
+      color:#7a3e00; line-height:1.7;`;
+    alerte.innerHTML = `⚠️ Document${manquants.length > 1 ? "s" : ""} obligatoire${manquants.length > 1 ? "s" : ""} introuvable${manquants.length > 1 ? "s" : ""} dans <strong>2-prepa_BO</strong> :<br>`
+      + manquants.map(m => `&nbsp;&nbsp;• ${m}`).join("<br>");
+    liste.insertBefore(alerte, liste.firstChild);
   }
 
   ajouterSection("✅ Obligatoires", obligs, true,  true);
@@ -767,6 +788,16 @@ function toutSelectionner() {
     item.querySelector(".check").textContent = "✓";
   });
   document.getElementById("btn-retour").disabled = false;
+}
+
+function toutDeselectionner() {
+  document.querySelectorAll(".fichier-item").forEach(item => {
+    const id = item.dataset.id;
+    selectionnes.delete(id);
+    item.classList.remove("selectionne");
+    item.querySelector(".check").textContent = "";
+  });
+  document.getElementById("btn-retour").disabled = true;
 }
 
 // ── Retour BO : renommer les fichiers sur place dans 3-SCANS_terrain ────────
