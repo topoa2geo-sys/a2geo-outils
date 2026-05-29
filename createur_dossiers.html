@@ -122,7 +122,7 @@
 
   <div class="chemin-box">
     📍 Destination : <strong>Sur mon iPad › A2GEO › AAAA_NNN</strong><br>
-    Le ZIP sera extrait directement dans <em>Sur mon iPad</em> et créera le dossier <strong>A2GEO</strong> s'il n'existe pas encore.
+    Enregistrez le ZIP <strong>dans le dossier A2GEO</strong> existant, puis dézippez-le à l'intérieur.
   </div>
 
   <div id="liste-dossiers">
@@ -146,9 +146,9 @@
     <li>Répétez pour chaque affaire à créer</li>
     <li>Appuyez sur <strong>Générer</strong> → la feuille de partage iOS s'ouvre</li>
     <li>Choisir <strong>Enregistrer dans Fichiers</strong></li>
-    <li>Sélectionner <strong>Sur mon iPad</strong> (racine) et confirmer</li>
-    <li>Aller dans <strong>Fichiers</strong> › taper sur le ZIP → il se dézippe<br>
-        → le dossier <strong>A2GEO/2026_NNN</strong> est créé ✅</li>
+    <li>Naviguer dans <strong>Sur mon iPad › A2GEO</strong> et confirmer</li>
+    <li>Dans Fichiers, ouvrir <strong>A2GEO</strong> › taper sur le ZIP → il se dézippe<br>
+        → les dossiers <strong>2026_NNN</strong> sont créés dans A2GEO ✅</li>
   </ol>
 </div>
 
@@ -246,8 +246,8 @@ async function genererZip() {
     const zip = new JSZip();
 
     dossiers.forEach(nom => {
-      // Crée le dossier A2GEO/AAAA_NNN/ avec un fichier placeholder invisible
-      zip.file(`${DOSSIER_PARENT}/${nom}/.a2geo`, "");
+      // Crée le dossier AAAA_NNN/ directement (sera extrait dans A2GEO sur l'iPad)
+      zip.file(`${nom}/.a2geo`, "");
     });
 
     const blob    = await zip.generateAsync({ type: "blob", compression: "STORE" });
@@ -280,8 +280,8 @@ async function genererZip() {
     document.getElementById("carte-succes").classList.remove("hidden");
     document.getElementById("carte-succes").querySelector("p").innerHTML =
       `${nbDoss} dossier${nbDoss > 1 ? "s" : ""} prêt${nbDoss > 1 ? "s" : ""} 🎉<br>
-       Enregistrez le ZIP dans <strong>Fichiers › Sur mon iPad</strong><br>
-       puis appuyez dessus pour le dézipper.`;
+       Enregistrez le ZIP dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
+       puis appuyez dessus pour le dézipper à l'intérieur.`;
 
   } catch(e) {
     progress.textContent = "❌ Erreur : " + e.message;
