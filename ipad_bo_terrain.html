@@ -222,12 +222,13 @@
       </div>
       <div class="info-txt" style="margin-bottom:10px;line-height:1.8;">
         Télécharge tous les fichiers de <strong>2-prepa_BO</strong> en un ZIP.<br>
-        <strong>Sur iPad, après le téléchargement :</strong>
+        <strong>Sur iPad :</strong>
         <ol style="margin:6px 0 0 18px;font-size:12px;">
-          <li>Ouvrir <strong>Fichiers</strong> › Onglet <em>Sur mon iPad</em></li>
-          <li>Créer le dossier <strong><span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> (maintenir appui › Nouveau dossier)</li>
-          <li>Déplacer le ZIP <strong>terrain_<span class="num-dossier-lbl" style="color:var(--bleu2);"></span>.zip</strong> dans ce dossier</li>
-          <li>Appuyer sur le ZIP pour le dézipper</li>
+          <li>Créer d'abord le dossier <strong><span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> dans <em>Fichiers › Sur mon iPad</em></li>
+          <li>Appuyer sur <strong>📦 Télécharger tout en ZIP</strong></li>
+          <li>La feuille de partage iOS s'ouvre → <strong>Enregistrer dans Fichiers</strong></li>
+          <li>Naviguer vers le dossier <strong><span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> et confirmer</li>
+          <li>Appuyer sur le ZIP pour le dézipper sur place</li>
         </ol>
       </div>
       <button class="btn btn-success" onclick="telechargerZip()" id="btn-zip"
@@ -721,14 +722,31 @@ async function telechargerZip() {
     barre.style.width = "100%";
 
     // Déclencher le téléchargement
-    const url = URL.createObjectURL(contenu);
-    const a   = document.createElement("a");
-    a.href     = url;
-    a.download = `terrain_${num}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 15000);
+    // Sur iOS : Web Share API → feuille de partage → "Enregistrer dans Fichiers" → dossier choisi par l'utilisateur
+    // Fallback : download classique (bureau / Android)
+    const nomZip = `terrain_${num}.zip`;
+    const zipFile = new File([contenu], nomZip, { type: "application/zip" });
+    let partage = false;
+    if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
+      try {
+        await navigator.share({ files: [zipFile], title: nomZip });
+        partage = true;
+      } catch(shareErr) {
+        // L'utilisateur a annulé ou share a échoué → fallback download
+        if (shareErr.name !== "AbortError") console.warn("Share échoué:", shareErr);
+      }
+    }
+    if (!partage) {
+      // Fallback : téléchargement direct (ira dans Téléchargements)
+      const url = URL.createObjectURL(contenu);
+      const a   = document.createElement("a");
+      a.href     = url;
+      a.download = nomZip;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    }
 
     label.textContent = `✅ ZIP prêt — ${total} fichier(s)`;
     // Mémoriser la date du téléchargement pour détecter les fichiers signés au retour
