@@ -119,6 +119,22 @@
                 background: white; display: flex; align-items: center; justify-content: center;
                 cursor: pointer; flex-shrink: 0; font-size: 14px; }
   .terrain-cb.coche { background: var(--bleu2); border-color: var(--bleu2); color: white; }
+
+  /* ── Upload terrain local ── */
+  .fichier-local-item { border: 1.5px solid var(--gris2); border-radius: 10px;
+                        padding: 12px 14px; margin-bottom: 8px; background: var(--gris);
+                        display: flex; align-items: center; gap: 10px; }
+  .fichier-local-item.modifie    { border-color: var(--vert);  background: #f0fff4; }
+  .fichier-local-item.non-modifie{ opacity: .5; }
+  .upload-zone { border: 2px dashed var(--gris2); border-radius: 12px; padding: 20px 16px;
+                 text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
+                 background: var(--gris); margin-bottom: 4px; }
+  .upload-zone:active { border-color: var(--bleu2); background: #eef3ff; }
+  .upload-zone input[type=file] { display: none; }
+  .zip-info-box { border-radius: 10px; padding: 11px 14px;
+                  font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+  .zip-info-ok  { background: #eef3ff; color: var(--bleu); }
+  .zip-info-warn{ background: #fff3cd; color: #7a3e00; }
 </style>
 </head>
 <body>
@@ -129,7 +145,7 @@
     <p>Téléchargement · Travail hors connexion · Renommage fichiers terrain</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
-    <div style="font-weight:700;">v2.8</div>
+    <div style="font-weight:700;">v2.9</div>
     <div id="version-date">—</div>
   </div>
 </header>
@@ -172,6 +188,9 @@
     </button>
     <button class="tab-btn" id="tab-retour" onclick="basculerOnglet('retour')">
       📤 Retour BO
+    </button>
+    <button class="tab-btn" id="tab-upload" onclick="basculerOnglet('upload')">
+      📱 Upload terrain
     </button>
   </div>
 
@@ -216,6 +235,63 @@
         </div>
         <p id="zip-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
       </div>
+    </div>
+  </div>
+
+
+  <!-- ══ ONGLET UPLOAD TERRAIN : fichiers locaux iPad → Drive ══ -->
+  <div class="card hidden" id="carte-upload-terrain" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
+    <h2>📱 Upload fichiers terrain → Drive</h2>
+
+    <!-- Info ZIP -->
+    <div id="zip-info-ok" class="zip-info-box zip-info-ok hidden">
+      📦 ZIP téléchargé le <strong id="zip-date-lbl">—</strong> —
+      seuls les fichiers <strong>modifiés après cette date</strong> seront détectés comme signés.
+    </div>
+    <div id="zip-info-absent" class="zip-info-box zip-info-warn hidden">
+      ⚠️ Aucun téléchargement ZIP enregistré pour ce dossier.
+      Téléchargez d'abord le ZIP depuis l'onglet <strong>Préparer terrain</strong>,
+      ou sélectionnez manuellement les fichiers à uploader ci-dessous.
+    </div>
+
+    <!-- Zone de sélection fichiers -->
+    <label class="upload-zone" for="inp-fichiers-locaux">
+      <input type="file" id="inp-fichiers-locaux" multiple accept=".pdf,.PDF,.jpg,.jpeg,.png,.JPG,.JPEG,.PNG"
+             onchange="onFichiersLocauxChange(this)">
+      <div style="font-size:36px;margin-bottom:8px;">📂</div>
+      <div style="font-weight:700;color:var(--bleu);font-size:15px;">Appuyer pour sélectionner les fichiers</div>
+      <div style="font-size:12px;color:#888;margin-top:6px;">
+        Naviguez vers le dossier <strong id="dossier-upload-lbl" style="color:var(--bleu2);"></strong> sur votre iPad
+      </div>
+    </label>
+
+    <!-- Liste fichiers détectés -->
+    <div id="liste-fichiers-locaux" style="margin-top:10px;"></div>
+
+    <!-- Actions upload -->
+    <div id="upload-actions" class="hidden" style="margin-top:10px;">
+      <hr class="sep">
+      <div id="resume-detection" style="font-size:13px;color:#555;margin-bottom:10px;"></div>
+      <button class="btn btn-success" id="btn-upload-terrain" onclick="lancerUploadTerrain()" disabled
+              style="width:100%;justify-content:center;">
+        ☁️&nbsp; Uploader les fichiers signés → Drive
+      </button>
+    </div>
+
+    <!-- Barre de progression -->
+    <div id="upload-progress" class="hidden" style="margin-top:14px;">
+      <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
+        <div id="upload-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+      </div>
+      <p id="upload-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+    </div>
+
+    <!-- Résultats -->
+    <div id="upload-resultats" class="hidden" style="margin-top:12px;">
+      <div id="liste-upload-resultats"></div>
+      <button class="btn btn-secondary mt14" onclick="reinitialiserUpload()">
+        🔄&nbsp; Recommencer
+      </button>
     </div>
   </div>
 
@@ -407,7 +483,9 @@ function basculerOnglet(nom) {
   ongletActif = nom;
   document.getElementById("tab-terrain").classList.toggle("actif", nom === "terrain");
   document.getElementById("tab-retour").classList.toggle("actif", nom === "retour");
+  document.getElementById("tab-upload").classList.toggle("actif", nom === "upload");
   document.getElementById("carte-terrain").classList.toggle("hidden", nom !== "terrain");
+  document.getElementById("carte-upload-terrain").classList.toggle("hidden", nom !== "upload");
   const cf = document.getElementById("carte-fichiers");
   // carte-fichiers visible seulement si onglet retour ET fichiers chargés
   if (nom === "retour" && fichiersDrive.length >= 0 && dossierAffaireId) {
@@ -648,6 +726,8 @@ async function telechargerZip() {
     setTimeout(() => URL.revokeObjectURL(url), 15000);
 
     label.textContent = `✅ ZIP prêt — ${total} fichier(s)`;
+    // Mémoriser la date du téléchargement pour détecter les fichiers signés au retour
+    try { localStorage.setItem('a2geo_zip_' + num, String(Date.now())); } catch(e) {}
     btn.innerHTML = "✅&nbsp; ZIP téléchargé";
     btn.style.background = "var(--vert)";
 
@@ -697,6 +777,7 @@ async function chargerFichiers() {
     document.getElementById("zone-tabs").classList.remove("hidden");
     afficherFichiersTerrain(fichiersTerrain);
     afficherFichiers(num, fichiersDrive);
+    afficherInfoZip(num);
 
     // Démarrer sur l'onglet terrain si des fichiers prepa_BO existent
     basculerOnglet(fichiersTerrain.length ? "terrain" : "retour");
@@ -879,6 +960,7 @@ function reinitialiser() {
   dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
   _resetBoutonZip();
+  reinitialiserUpload();
   document.getElementById("inp-dossier").focus();
 }
 
@@ -892,12 +974,615 @@ function _resetBoutonZip() {
   document.getElementById("zip-barre").style.width = "0%";
   document.getElementById("zip-label").textContent = "";
 }
+
+// ── Upload terrain local ─────────────────────────────────────────────────────
+let fichiersLocaux    = [];   // File[] sélectionnés
+let fichiersAUploader = [];   // File[] modifiés (à uploader)
+
+function afficherInfoZip(num) {
+  const stored   = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const boxOk    = document.getElementById("zip-info-ok");
+  const boxWarn  = document.getElementById("zip-info-absent");
+  const lblDoss  = document.getElementById("dossier-upload-lbl");
+  if (lblDoss) lblDoss.textContent = num;
+
+  if (stored) {
+    const d   = new Date(parseInt(stored));
+    const fmt = n => String(n).padStart(2, "0");
+    document.getElementById("zip-date-lbl").textContent =
+      `${fmt(d.getDate())}/${fmt(d.getMonth()+1)}/${d.getFullYear()} à ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+    boxOk.classList.remove("hidden");
+    boxWarn.classList.add("hidden");
+  } else {
+    boxOk.classList.add("hidden");
+    boxWarn.classList.remove("hidden");
+  }
+}
+
+function onFichiersLocauxChange(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  const num    = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  const stored = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const zipTs  = stored ? parseInt(stored) : 0;
+
+  const modifies    = [];
+  const nonModifies = [];
+  files.forEach(f => {
+    if (!zipTs || f.lastModified > zipTs) modifies.push(f);
+    else nonModifies.push(f);
+  });
+
+  fichiersLocaux    = files;
+  fichiersAUploader = [...modifies];
+  afficherFichiersLocaux(modifies, nonModifies, zipTs > 0);
+}
+
+function afficherFichiersLocaux(modifies, nonModifies, avecTimestamp) {
+  const liste   = document.getElementById("liste-fichiers-locaux");
+  const actions = document.getElementById("upload-actions");
+  const resume  = document.getElementById("resume-detection");
+  liste.innerHTML = "";
+
+  const fmt = n => String(n).padStart(2, "0");
+
+  function creerItem(f, estModifie) {
+    const info     = classerFichier(f.name);
+    const nomCible = nouveauNom(f.name, info.type);
+    const taille   = Math.round(f.size / 1024) + " Ko";
+    const d        = new Date(f.lastModified);
+    const dateModif = `${fmt(d.getDate())}/${fmt(d.getMonth()+1)} ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+
+    const item = document.createElement("div");
+    item.className = "fichier-local-item" + (estModifie ? " modifie" : " non-modifie");
+
+    item.innerHTML = `
+      <div class="terrain-cb ${estModifie ? 'coche' : ''}" style="border-radius:6px;flex-shrink:0;">
+        ${estModifie ? '✓' : '—'}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#999;word-break:break-all;">${f.name}</div>
+        <div style="font-size:13px;font-weight:700;color:${estModifie ? 'var(--vert)' : '#aaa'};margin-top:3px;">
+          ${estModifie ? '→ ' + nomCible : '(non modifié depuis le ZIP)'}
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille} · modifié le ${dateModif}</div>
+      </div>
+      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;">${info.label}</span>`;
+    return item;
+  }
+
+  if (modifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = avecTimestamp
+      ? `✅ Fichiers signés détectés — ${modifies.length} fichier(s)`
+      : `📂 Fichiers sélectionnés — ${modifies.length} fichier(s)`;
+    liste.appendChild(sep);
+    modifies.forEach(f => liste.appendChild(creerItem(f, true)));
+  }
+
+  if (nonModifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = `⏭ Non modifiés depuis le ZIP — ${nonModifies.length} fichier(s) ignoré(s)`;
+    liste.appendChild(sep);
+    nonModifies.forEach(f => liste.appendChild(creerItem(f, false)));
+  }
+
+  if (modifies.length) {
+    actions.classList.remove("hidden");
+    resume.textContent = avecTimestamp
+      ? `${modifies.length} signé(s) détecté(s) sur ${fichiersLocaux.length} · ${nonModifies.length} ignoré(s)`
+      : `${modifies.length} fichier(s) sélectionné(s) à uploader`;
+    document.getElementById("btn-upload-terrain").disabled = false;
+  } else {
+    actions.classList.add("hidden");
+    liste.insertAdjacentHTML("beforeend",
+      '<p style="color:#888;font-size:14px;margin-top:8px;text-align:center;">Aucun fichier signé détecté. Vérifiez que vous avez bien sélectionné les fichiers du bon dossier.</p>');
+  }
+}
+
+async function lancerUploadTerrain() {
+  const btn      = document.getElementById("btn-upload-terrain");
+  const progZone = document.getElementById("upload-progress");
+  const barre    = document.getElementById("upload-barre");
+  const label    = document.getElementById("upload-label");
+  const resZone  = document.getElementById("upload-resultats");
+  const listeRes = document.getElementById("liste-upload-resultats");
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Upload en cours…';
+  progZone.classList.remove("hidden");
+  resZone.classList.add("hidden");
+  listeRes.innerHTML = "";
+
+  try {
+    // Créer 3-SCANS_terrain si besoin
+    if (!dossierScanId) {
+      label.textContent = "Recherche/création du dossier " + DOSSIER_DESTINATION + "…";
+      const found = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+      dossierScanId = found || await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
+    }
+
+    const total = fichiersAUploader.length;
+    let ok = 0, err = 0;
+
+    for (let i = 0; i < total; i++) {
+      const f        = fichiersAUploader[i];
+      const info     = classerFichier(f.name);
+      const nomCible = nouveauNom(f.name, info.type);
+      label.textContent = `Upload ${i + 1}/${total} — ${nomCible}`;
+      barre.style.width = Math.round((i / total) * 88) + "%";
+      try {
+        await uploaderFichierDrive(f, nomCible, dossierScanId);
+        ajouterResultat(listeRes, "res-ok",  "✅", f.name, `→ ${nomCible}`);
+        ok++;
+      } catch(e) {
+        ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
+        err++;
+      }
+    }
+
+    barre.style.width = "100%";
+    label.textContent = `✅ ${ok} fichier(s) uploadé(s)`;
+
+    const res = document.createElement("div");
+    res.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
+    res.textContent = `${ok} fichier(s) uploadé(s) dans ${DOSSIER_DESTINATION}`
+      + (err ? `  —  ${err} erreur(s)` : "  ✅");
+    listeRes.appendChild(res);
+
+    btn.innerHTML = "✅&nbsp; Upload terminé";
+    resZone.classList.remove("hidden");
+
+  } catch(e) {
+    label.textContent = "❌ " + e.message;
+    btn.disabled = false;
+    btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive";
+  }
+}
+
+async function uploaderFichierDrive(file, nomCible, folderId) {
+  const buf      = await file.arrayBuffer();
+  const metadata = { name: nomCible, parents: [folderId] };
+  const form     = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file",     new Blob([buf], { type: file.type || "application/octet-stream" }), nomCible);
+
+  const r = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",
+    { method: "POST", headers: { Authorization: "Bearer " + accessToken }, body: form }
+  );
+  if (!r.ok) throw new Error("HTTP " + r.status + " : " + await r.text());
+  return r.json();
+}
+
+function reinitialiserUpload() {
+  const el = id => document.getElementById(id);
+  el("liste-fichiers-locaux").innerHTML = "";
+  el("upload-actions").classList.add("hidden");
+  el("upload-progress").classList.add("hidden");
+  el("upload-resultats").classList.add("hidden");
+  el("upload-barre").style.width = "0%";
+  el("upload-label").textContent = "";
+  el("liste-upload-resultats").innerHTML = "";
+  const inp = el("inp-fichiers-locaux");
+  if (inp) inp.value = "";
+  const btn = el("btn-upload-terrain");
+  if (btn) { btn.disabled = true; btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive"; }
+  fichiersLocaux = [];
+  fichiersAUploader = [];
+}
+
 </script>
 
 <!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer>
+// ── Upload terrain local ─────────────────────────────────────────────────────
+let fichiersLocaux    = [];   // File[] sélectionnés
+let fichiersAUploader = [];   // File[] modifiés (à uploader)
+
+function afficherInfoZip(num) {
+  const stored   = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const boxOk    = document.getElementById("zip-info-ok");
+  const boxWarn  = document.getElementById("zip-info-absent");
+  const lblDoss  = document.getElementById("dossier-upload-lbl");
+  if (lblDoss) lblDoss.textContent = num;
+
+  if (stored) {
+    const d   = new Date(parseInt(stored));
+    const fmt = n => String(n).padStart(2, "0");
+    document.getElementById("zip-date-lbl").textContent =
+      `${fmt(d.getDate())}/${fmt(d.getMonth()+1)}/${d.getFullYear()} à ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+    boxOk.classList.remove("hidden");
+    boxWarn.classList.add("hidden");
+  } else {
+    boxOk.classList.add("hidden");
+    boxWarn.classList.remove("hidden");
+  }
+}
+
+function onFichiersLocauxChange(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  const num    = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  const stored = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const zipTs  = stored ? parseInt(stored) : 0;
+
+  const modifies    = [];
+  const nonModifies = [];
+  files.forEach(f => {
+    if (!zipTs || f.lastModified > zipTs) modifies.push(f);
+    else nonModifies.push(f);
+  });
+
+  fichiersLocaux    = files;
+  fichiersAUploader = [...modifies];
+  afficherFichiersLocaux(modifies, nonModifies, zipTs > 0);
+}
+
+function afficherFichiersLocaux(modifies, nonModifies, avecTimestamp) {
+  const liste   = document.getElementById("liste-fichiers-locaux");
+  const actions = document.getElementById("upload-actions");
+  const resume  = document.getElementById("resume-detection");
+  liste.innerHTML = "";
+
+  const fmt = n => String(n).padStart(2, "0");
+
+  function creerItem(f, estModifie) {
+    const info     = classerFichier(f.name);
+    const nomCible = nouveauNom(f.name, info.type);
+    const taille   = Math.round(f.size / 1024) + " Ko";
+    const d        = new Date(f.lastModified);
+    const dateModif = `${fmt(d.getDate())}/${fmt(d.getMonth()+1)} ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+
+    const item = document.createElement("div");
+    item.className = "fichier-local-item" + (estModifie ? " modifie" : " non-modifie");
+
+    item.innerHTML = `
+      <div class="terrain-cb ${estModifie ? 'coche' : ''}" style="border-radius:6px;flex-shrink:0;">
+        ${estModifie ? '✓' : '—'}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#999;word-break:break-all;">${f.name}</div>
+        <div style="font-size:13px;font-weight:700;color:${estModifie ? 'var(--vert)' : '#aaa'};margin-top:3px;">
+          ${estModifie ? '→ ' + nomCible : '(non modifié depuis le ZIP)'}
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille} · modifié le ${dateModif}</div>
+      </div>
+      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;">${info.label}</span>`;
+    return item;
+  }
+
+  if (modifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = avecTimestamp
+      ? `✅ Fichiers signés détectés — ${modifies.length} fichier(s)`
+      : `📂 Fichiers sélectionnés — ${modifies.length} fichier(s)`;
+    liste.appendChild(sep);
+    modifies.forEach(f => liste.appendChild(creerItem(f, true)));
+  }
+
+  if (nonModifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = `⏭ Non modifiés depuis le ZIP — ${nonModifies.length} fichier(s) ignoré(s)`;
+    liste.appendChild(sep);
+    nonModifies.forEach(f => liste.appendChild(creerItem(f, false)));
+  }
+
+  if (modifies.length) {
+    actions.classList.remove("hidden");
+    resume.textContent = avecTimestamp
+      ? `${modifies.length} signé(s) détecté(s) sur ${fichiersLocaux.length} · ${nonModifies.length} ignoré(s)`
+      : `${modifies.length} fichier(s) sélectionné(s) à uploader`;
+    document.getElementById("btn-upload-terrain").disabled = false;
+  } else {
+    actions.classList.add("hidden");
+    liste.insertAdjacentHTML("beforeend",
+      '<p style="color:#888;font-size:14px;margin-top:8px;text-align:center;">Aucun fichier signé détecté. Vérifiez que vous avez bien sélectionné les fichiers du bon dossier.</p>');
+  }
+}
+
+async function lancerUploadTerrain() {
+  const btn      = document.getElementById("btn-upload-terrain");
+  const progZone = document.getElementById("upload-progress");
+  const barre    = document.getElementById("upload-barre");
+  const label    = document.getElementById("upload-label");
+  const resZone  = document.getElementById("upload-resultats");
+  const listeRes = document.getElementById("liste-upload-resultats");
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Upload en cours…';
+  progZone.classList.remove("hidden");
+  resZone.classList.add("hidden");
+  listeRes.innerHTML = "";
+
+  try {
+    // Créer 3-SCANS_terrain si besoin
+    if (!dossierScanId) {
+      label.textContent = "Recherche/création du dossier " + DOSSIER_DESTINATION + "…";
+      const found = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+      dossierScanId = found || await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
+    }
+
+    const total = fichiersAUploader.length;
+    let ok = 0, err = 0;
+
+    for (let i = 0; i < total; i++) {
+      const f        = fichiersAUploader[i];
+      const info     = classerFichier(f.name);
+      const nomCible = nouveauNom(f.name, info.type);
+      label.textContent = `Upload ${i + 1}/${total} — ${nomCible}`;
+      barre.style.width = Math.round((i / total) * 88) + "%";
+      try {
+        await uploaderFichierDrive(f, nomCible, dossierScanId);
+        ajouterResultat(listeRes, "res-ok",  "✅", f.name, `→ ${nomCible}`);
+        ok++;
+      } catch(e) {
+        ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
+        err++;
+      }
+    }
+
+    barre.style.width = "100%";
+    label.textContent = `✅ ${ok} fichier(s) uploadé(s)`;
+
+    const res = document.createElement("div");
+    res.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
+    res.textContent = `${ok} fichier(s) uploadé(s) dans ${DOSSIER_DESTINATION}`
+      + (err ? `  —  ${err} erreur(s)` : "  ✅");
+    listeRes.appendChild(res);
+
+    btn.innerHTML = "✅&nbsp; Upload terminé";
+    resZone.classList.remove("hidden");
+
+  } catch(e) {
+    label.textContent = "❌ " + e.message;
+    btn.disabled = false;
+    btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive";
+  }
+}
+
+async function uploaderFichierDrive(file, nomCible, folderId) {
+  const buf      = await file.arrayBuffer();
+  const metadata = { name: nomCible, parents: [folderId] };
+  const form     = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file",     new Blob([buf], { type: file.type || "application/octet-stream" }), nomCible);
+
+  const r = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",
+    { method: "POST", headers: { Authorization: "Bearer " + accessToken }, body: form }
+  );
+  if (!r.ok) throw new Error("HTTP " + r.status + " : " + await r.text());
+  return r.json();
+}
+
+function reinitialiserUpload() {
+  const el = id => document.getElementById(id);
+  el("liste-fichiers-locaux").innerHTML = "";
+  el("upload-actions").classList.add("hidden");
+  el("upload-progress").classList.add("hidden");
+  el("upload-resultats").classList.add("hidden");
+  el("upload-barre").style.width = "0%";
+  el("upload-label").textContent = "";
+  el("liste-upload-resultats").innerHTML = "";
+  const inp = el("inp-fichiers-locaux");
+  if (inp) inp.value = "";
+  const btn = el("btn-upload-terrain");
+  if (btn) { btn.disabled = true; btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive"; }
+  fichiersLocaux = [];
+  fichiersAUploader = [];
+}
+
+</script>
 <!-- JSZip — création du ZIP côté navigateur -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+// ── Upload terrain local ─────────────────────────────────────────────────────
+let fichiersLocaux    = [];   // File[] sélectionnés
+let fichiersAUploader = [];   // File[] modifiés (à uploader)
+
+function afficherInfoZip(num) {
+  const stored   = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const boxOk    = document.getElementById("zip-info-ok");
+  const boxWarn  = document.getElementById("zip-info-absent");
+  const lblDoss  = document.getElementById("dossier-upload-lbl");
+  if (lblDoss) lblDoss.textContent = num;
+
+  if (stored) {
+    const d   = new Date(parseInt(stored));
+    const fmt = n => String(n).padStart(2, "0");
+    document.getElementById("zip-date-lbl").textContent =
+      `${fmt(d.getDate())}/${fmt(d.getMonth()+1)}/${d.getFullYear()} à ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+    boxOk.classList.remove("hidden");
+    boxWarn.classList.add("hidden");
+  } else {
+    boxOk.classList.add("hidden");
+    boxWarn.classList.remove("hidden");
+  }
+}
+
+function onFichiersLocauxChange(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  const num    = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  const stored = (() => { try { return localStorage.getItem('a2geo_zip_' + num); } catch(e) { return null; } })();
+  const zipTs  = stored ? parseInt(stored) : 0;
+
+  const modifies    = [];
+  const nonModifies = [];
+  files.forEach(f => {
+    if (!zipTs || f.lastModified > zipTs) modifies.push(f);
+    else nonModifies.push(f);
+  });
+
+  fichiersLocaux    = files;
+  fichiersAUploader = [...modifies];
+  afficherFichiersLocaux(modifies, nonModifies, zipTs > 0);
+}
+
+function afficherFichiersLocaux(modifies, nonModifies, avecTimestamp) {
+  const liste   = document.getElementById("liste-fichiers-locaux");
+  const actions = document.getElementById("upload-actions");
+  const resume  = document.getElementById("resume-detection");
+  liste.innerHTML = "";
+
+  const fmt = n => String(n).padStart(2, "0");
+
+  function creerItem(f, estModifie) {
+    const info     = classerFichier(f.name);
+    const nomCible = nouveauNom(f.name, info.type);
+    const taille   = Math.round(f.size / 1024) + " Ko";
+    const d        = new Date(f.lastModified);
+    const dateModif = `${fmt(d.getDate())}/${fmt(d.getMonth()+1)} ${fmt(d.getHours())}:${fmt(d.getMinutes())}`;
+
+    const item = document.createElement("div");
+    item.className = "fichier-local-item" + (estModifie ? " modifie" : " non-modifie");
+
+    item.innerHTML = `
+      <div class="terrain-cb ${estModifie ? 'coche' : ''}" style="border-radius:6px;flex-shrink:0;">
+        ${estModifie ? '✓' : '—'}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#999;word-break:break-all;">${f.name}</div>
+        <div style="font-size:13px;font-weight:700;color:${estModifie ? 'var(--vert)' : '#aaa'};margin-top:3px;">
+          ${estModifie ? '→ ' + nomCible : '(non modifié depuis le ZIP)'}
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille} · modifié le ${dateModif}</div>
+      </div>
+      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;">${info.label}</span>`;
+    return item;
+  }
+
+  if (modifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = avecTimestamp
+      ? `✅ Fichiers signés détectés — ${modifies.length} fichier(s)`
+      : `📂 Fichiers sélectionnés — ${modifies.length} fichier(s)`;
+    liste.appendChild(sep);
+    modifies.forEach(f => liste.appendChild(creerItem(f, true)));
+  }
+
+  if (nonModifies.length) {
+    const sep = document.createElement("div");
+    sep.className = "section-terrain";
+    sep.textContent = `⏭ Non modifiés depuis le ZIP — ${nonModifies.length} fichier(s) ignoré(s)`;
+    liste.appendChild(sep);
+    nonModifies.forEach(f => liste.appendChild(creerItem(f, false)));
+  }
+
+  if (modifies.length) {
+    actions.classList.remove("hidden");
+    resume.textContent = avecTimestamp
+      ? `${modifies.length} signé(s) détecté(s) sur ${fichiersLocaux.length} · ${nonModifies.length} ignoré(s)`
+      : `${modifies.length} fichier(s) sélectionné(s) à uploader`;
+    document.getElementById("btn-upload-terrain").disabled = false;
+  } else {
+    actions.classList.add("hidden");
+    liste.insertAdjacentHTML("beforeend",
+      '<p style="color:#888;font-size:14px;margin-top:8px;text-align:center;">Aucun fichier signé détecté. Vérifiez que vous avez bien sélectionné les fichiers du bon dossier.</p>');
+  }
+}
+
+async function lancerUploadTerrain() {
+  const btn      = document.getElementById("btn-upload-terrain");
+  const progZone = document.getElementById("upload-progress");
+  const barre    = document.getElementById("upload-barre");
+  const label    = document.getElementById("upload-label");
+  const resZone  = document.getElementById("upload-resultats");
+  const listeRes = document.getElementById("liste-upload-resultats");
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>&nbsp;Upload en cours…';
+  progZone.classList.remove("hidden");
+  resZone.classList.add("hidden");
+  listeRes.innerHTML = "";
+
+  try {
+    // Créer 3-SCANS_terrain si besoin
+    if (!dossierScanId) {
+      label.textContent = "Recherche/création du dossier " + DOSSIER_DESTINATION + "…";
+      const found = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+      dossierScanId = found || await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
+    }
+
+    const total = fichiersAUploader.length;
+    let ok = 0, err = 0;
+
+    for (let i = 0; i < total; i++) {
+      const f        = fichiersAUploader[i];
+      const info     = classerFichier(f.name);
+      const nomCible = nouveauNom(f.name, info.type);
+      label.textContent = `Upload ${i + 1}/${total} — ${nomCible}`;
+      barre.style.width = Math.round((i / total) * 88) + "%";
+      try {
+        await uploaderFichierDrive(f, nomCible, dossierScanId);
+        ajouterResultat(listeRes, "res-ok",  "✅", f.name, `→ ${nomCible}`);
+        ok++;
+      } catch(e) {
+        ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
+        err++;
+      }
+    }
+
+    barre.style.width = "100%";
+    label.textContent = `✅ ${ok} fichier(s) uploadé(s)`;
+
+    const res = document.createElement("div");
+    res.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
+    res.textContent = `${ok} fichier(s) uploadé(s) dans ${DOSSIER_DESTINATION}`
+      + (err ? `  —  ${err} erreur(s)` : "  ✅");
+    listeRes.appendChild(res);
+
+    btn.innerHTML = "✅&nbsp; Upload terminé";
+    resZone.classList.remove("hidden");
+
+  } catch(e) {
+    label.textContent = "❌ " + e.message;
+    btn.disabled = false;
+    btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive";
+  }
+}
+
+async function uploaderFichierDrive(file, nomCible, folderId) {
+  const buf      = await file.arrayBuffer();
+  const metadata = { name: nomCible, parents: [folderId] };
+  const form     = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file",     new Blob([buf], { type: file.type || "application/octet-stream" }), nomCible);
+
+  const r = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",
+    { method: "POST", headers: { Authorization: "Bearer " + accessToken }, body: form }
+  );
+  if (!r.ok) throw new Error("HTTP " + r.status + " : " + await r.text());
+  return r.json();
+}
+
+function reinitialiserUpload() {
+  const el = id => document.getElementById(id);
+  el("liste-fichiers-locaux").innerHTML = "";
+  el("upload-actions").classList.add("hidden");
+  el("upload-progress").classList.add("hidden");
+  el("upload-resultats").classList.add("hidden");
+  el("upload-barre").style.width = "0%";
+  el("upload-label").textContent = "";
+  el("liste-upload-resultats").innerHTML = "";
+  const inp = el("inp-fichiers-locaux");
+  if (inp) inp.value = "";
+  const btn = el("btn-upload-terrain");
+  if (btn) { btn.disabled = true; btn.innerHTML = "☁️&nbsp; Uploader les fichiers signés → Drive"; }
+  fichiersLocaux = [];
+  fichiersAUploader = [];
+}
+
+</script>
 
 </body>
 </html>
