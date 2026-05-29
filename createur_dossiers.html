@@ -122,7 +122,7 @@
 
   <div class="chemin-box">
     📍 Destination : <strong>Sur mon iPad › A2GEO › AAAA_NNN</strong><br>
-    Enregistrez le ZIP <strong>dans le dossier A2GEO</strong> existant, puis dézippez-le à l'intérieur.
+    Un ZIP par dossier, nommé <strong>AAAA_NNN.zip</strong>. iOS crée un dossier du même nom lors de l'extraction → enregistrez dans <strong>A2GEO</strong> et tapez pour dézipper.
   </div>
 
   <div id="liste-dossiers">
@@ -146,9 +146,9 @@
     <li>Répétez pour chaque affaire à créer</li>
     <li>Appuyez sur <strong>Générer</strong> → la feuille de partage iOS s'ouvre</li>
     <li>Choisir <strong>Enregistrer dans Fichiers</strong></li>
-    <li>Naviguer dans <strong>Sur mon iPad › A2GEO</strong> et confirmer</li>
-    <li>Dans Fichiers, ouvrir <strong>A2GEO</strong> › taper sur le ZIP → il se dézippe<br>
-        → les dossiers <strong>2026_NNN</strong> sont créés dans A2GEO ✅</li>
+    <li>Naviguer dans <strong>Sur mon iPad › A2GEO</strong> et confirmer pour chaque ZIP</li>
+    <li>Dans Fichiers, ouvrir <strong>A2GEO</strong> et taper sur chaque ZIP<br>
+        → iOS crée un dossier nommé <strong>2026_NNN</strong> (même nom que le ZIP) ✅</li>
   </ol>
 </div>
 
@@ -240,27 +240,27 @@ async function genererZip() {
   btn.disabled   = true;
   btn.innerHTML  = '<span class="spinner"></span>&nbsp;Génération…';
   progress.classList.remove("hidden");
-  progress.textContent = "Création du ZIP…";
 
   try {
-    const zip = new JSZip();
+    // ── Un ZIP par dossier, nommé AAAA_NNN.zip ──────────────────────────────
+    // iOS nomme le dossier créé d'après le nom du ZIP → 2026_104.zip → dossier 2026_104
+    const zipFiles = [];
+    for (const nom of dossiers) {
+      progress.textContent = `Création de ${nom}.zip…`;
+      const zip  = new JSZip();
+      zip.file(".a2geo", ""); // placeholder à la racine (requis : ZIP non vide)
+      const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+      zipFiles.push(new File([blob], `${nom}.zip`, { type: "application/zip" }));
+    }
 
-    dossiers.forEach(nom => {
-      // Crée le dossier AAAA_NNN/ directement (sera extrait dans A2GEO sur l'iPad)
-      zip.file(`${nom}/.a2geo`, "");
-    });
-
-    const blob    = await zip.generateAsync({ type: "blob", compression: "STORE" });
-    const nbDoss  = dossiers.length;
-    const nomZip  = `a2geo_dossiers_${Date.now()}.zip`;
-    const zipFile = new File([blob], nomZip, { type: "application/zip" });
-
+    const nbDoss = zipFiles.length;
     progress.textContent = "Ouverture de la feuille de partage…";
 
+    // Partager tous les ZIPs en une seule fois via Web Share
     let partage = false;
-    if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
+    if (navigator.canShare && navigator.canShare({ files: zipFiles })) {
       try {
-        await navigator.share({ files: [zipFile], title: nomZip });
+        await navigator.share({ files: zipFiles });
         partage = true;
       } catch(e) {
         if (e.name !== "AbortError") console.warn("Share échoué:", e);
@@ -268,20 +268,28 @@ async function genererZip() {
     }
 
     if (!partage) {
-      // Fallback téléchargement direct
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href = url; a.download = nomZip;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      // Fallback bureau : téléchargement un par un
+      for (const f of zipFiles) {
+        const url = URL.createObjectURL(f);
+        const a   = document.createElement("a");
+        a.href = url; a.download = f.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        await new Promise(r => setTimeout(r, 600));
+        URL.revokeObjectURL(url);
+      }
     }
 
     progress.classList.add("hidden");
     document.getElementById("carte-succes").classList.remove("hidden");
+    const listeNoms = dossiers.map(n => `<strong>${n}</strong>`).join(", ");
     document.getElementById("carte-succes").querySelector("p").innerHTML =
-      `${nbDoss} dossier${nbDoss > 1 ? "s" : ""} prêt${nbDoss > 1 ? "s" : ""} 🎉<br>
-       Enregistrez le ZIP dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
-       puis appuyez dessus pour le dézipper à l'intérieur.`;
+      nbDoss > 1
+        ? `${nbDoss} ZIPs générés 🎉<br>
+           Enregistrez chaque ZIP dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
+           puis appuyez sur chacun → le dossier du même nom est créé ✅`
+        : `ZIP généré 🎉<br>
+           Enregistrez <strong>${dossiers[0]}.zip</strong> dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
+           puis appuyez dessus → le dossier <strong>${dossiers[0]}</strong> est créé ✅`;
 
   } catch(e) {
     progress.textContent = "❌ Erreur : " + e.message;
