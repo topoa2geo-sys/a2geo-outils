@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>A2GEO — Tablette Prépa BO — Retour BO</title>
+<title>A2GEO — Tablette terrain</title>
 <style>
   :root {
     --bleu:   #003399;
@@ -141,11 +141,11 @@
 
 <header>
   <div style="flex:1;">
-    <h1>A2GEO — Tablette Prépa BO — Retour BO</h1>
-    <p>Téléchargement · Travail hors connexion · Renommage fichiers terrain</p>
+    <h1>A2GEO — Tablette terrain</h1>
+    <p>Préparer le terrain · Retour et upload Drive</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
-    <div style="font-weight:700;">v2.9</div>
+    <div style="font-weight:700;">v3.0</div>
     <div id="version-date">—</div>
   </div>
 </header>
@@ -186,11 +186,8 @@
     <button class="tab-btn actif" id="tab-terrain" onclick="basculerOnglet('terrain')">
       🏕️ Préparer terrain
     </button>
-    <button class="tab-btn" id="tab-retour" onclick="basculerOnglet('retour')">
-      📤 Retour BO
-    </button>
-    <button class="tab-btn" id="tab-upload" onclick="basculerOnglet('upload')">
-      📱 Upload terrain
+    <button class="tab-btn" id="tab-upload" onclick="basculerOnglet('retour')">
+      📤 Retour terrain
     </button>
   </div>
 
@@ -213,6 +210,16 @@
         📄&nbsp; Ouvrir la sélection dans Adobe
       </button>
       <p id="adobe-seq-info" class="info-txt hidden" style="margin-top:8px;text-align:center;color:var(--bleu2);"></p>
+    </div>
+
+    <!-- Avertissement dossier iPad -->
+    <div style="background:#fff3cd;border:2px solid #cc6600;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+      <div style="font-weight:700;color:#7a3e00;font-size:14px;margin-bottom:4px;">⚠️ Avant de télécharger</div>
+      <div style="font-size:13px;color:#7a3e00;line-height:1.6;">
+        Le dossier <strong><span class="num-dossier-lbl" style="color:var(--orange);"></span></strong>
+        doit être créé <strong>manuellement au préalable</strong> dans
+        <em>Fichiers › Sur mon iPad › A2GEO</em>.
+      </div>
     </div>
 
     <!-- Option B : sans connexion → ZIP -->
@@ -247,7 +254,7 @@
 
   <!-- ══ ONGLET UPLOAD TERRAIN : fichiers locaux iPad → Drive ══ -->
   <div class="card hidden" id="carte-upload-terrain" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
-    <h2>📱 Upload fichiers terrain → Drive</h2>
+    <h2>📤 Retour terrain → Drive</h2>
 
     <!-- Info ZIP -->
     <div id="zip-info-ok" class="zip-info-box zip-info-ok hidden">
@@ -301,35 +308,14 @@
     </div>
   </div>
 
-  <!-- ══ ONGLET RETOUR BO : renommer les scans signés ══ -->
-  <!-- Liste fichiers -->
-  <div class="card hidden" id="carte-fichiers" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
-    <h2 id="titre-fichiers">Fichiers détectés</h2>
-    <p class="info-txt" style="margin-bottom:10px;">
-      Vérifiez et corrigez les noms proposés si besoin, puis appliquez le renommage.
-    </p>
-    <div id="liste-fichiers"></div>
-    <hr class="sep">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-success" id="btn-retour" onclick="lancerRetourBO()" disabled>
-        ✅&nbsp; Appliquer les renommages
-      </button>
-      <button class="btn btn-secondary" onclick="toutSelectionner()">
-        ☑&nbsp; Tout sélectionner
-      </button>
-      <button class="btn btn-secondary" onclick="toutDeselectionner()">
-        🔲&nbsp; Tout désélectionner
-      </button>
-    </div>
-  </div>
 
   <!-- Résultats -->
-  <div class="card hidden" id="carte-resultats">
-    <h2>📋 Résultat</h2>
-    <div id="liste-resultats"></div>
-    <button class="btn btn-secondary mt14" onclick="reinitialiser()">
-      🔄&nbsp; Nouveau dossier
-    </button>
+    <div id="upload-resultats" class="hidden" style="margin-top:12px;">
+      <div id="liste-upload-resultats"></div>
+      <button class="btn btn-secondary mt14" onclick="reinitialiserUpload()">
+        🔄&nbsp; Recommencer
+      </button>
+    </div>
   </div>
 
 </div>
@@ -354,11 +340,9 @@ const DOSSIER_DESTINATION = "3-SCANS_terrain";
 const SCOPES = "https://www.googleapis.com/auth/drive";
 let tokenClient;
 let accessToken = null;
-let fichiersDrive = [];
 let fichiersTerrain = [];
 let dossierAffaireId = null;
 let dossierScanId    = null;
-let selectionnes = new Set();
 let ongletActif = "terrain";
 
 // ── Cache token en sessionStorage ────────────────────────────────────────────
@@ -488,18 +472,9 @@ async function copierFichier(fileId, nouveauNomFichier, destFolderId) {
 function basculerOnglet(nom) {
   ongletActif = nom;
   document.getElementById("tab-terrain").classList.toggle("actif", nom === "terrain");
-  document.getElementById("tab-retour").classList.toggle("actif", nom === "retour");
-  document.getElementById("tab-upload").classList.toggle("actif", nom === "upload");
+  document.getElementById("tab-upload").classList.toggle("actif", nom === "retour");
   document.getElementById("carte-terrain").classList.toggle("hidden", nom !== "terrain");
-  document.getElementById("carte-upload-terrain").classList.toggle("hidden", nom !== "upload");
-  const cf = document.getElementById("carte-fichiers");
-  // carte-fichiers visible seulement si onglet retour ET fichiers chargés
-  if (nom === "retour" && fichiersDrive.length >= 0 && dossierAffaireId) {
-    cf.classList.remove("hidden");
-  } else {
-    cf.classList.add("hidden");
-  }
-  document.getElementById("carte-resultats").classList.add("hidden");
+  document.getElementById("carte-upload-terrain").classList.toggle("hidden", nom !== "retour");
 }
 
 // ── Terrain : charger fichiers de 2-prepa_BO ────────────────────────────────
@@ -780,29 +755,12 @@ async function chargerFichiers() {
       errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
     }
 
-    // Charger en parallèle : terrain (2-prepa_BO) + retour BO (3-SCANS_terrain uniquement)
-    const [terrain, scanResult] = await Promise.all([
-      chargerFichiersTerrain(dossierAffaireId),
-      (async () => {
-        dossierScanId = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
-        if (!dossierScanId) return [];
-        const q = `'${dossierScanId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,size)&pageSize=200`;
-        const data = await driveGet(url);
-        return data.files; // toutes extensions
-      })()
-    ]);
-
-    fichiersTerrain = terrain;
-    fichiersDrive   = scanResult;
+    fichiersTerrain = await chargerFichiersTerrain(dossierAffaireId);
 
     // Afficher onglets + contenu
     document.getElementById("zone-tabs").classList.remove("hidden");
     afficherFichiersTerrain(fichiersTerrain);
-    afficherFichiers(num, fichiersDrive);
     afficherInfoZip(num);
-
-    // Démarrer sur l'onglet terrain si des fichiers prepa_BO existent
     basculerOnglet(fichiersTerrain.length ? "terrain" : "retour");
 
   } catch(e) {
@@ -812,156 +770,6 @@ async function chargerFichiers() {
   }
 }
 
-function afficherFichiers(num, fichiers) {
-  const carte = document.getElementById("carte-fichiers");
-  const liste = document.getElementById("liste-fichiers");
-  carte.classList.remove("hidden");
-  document.getElementById("carte-resultats").classList.add("hidden");
-
-  const titre = dossierScanId
-    ? `📂 ${DOSSIER_DESTINATION} (${fichiers.length} fichier${fichiers.length > 1 ? "s" : ""})`
-    : `⚠️ Dossier ${DOSSIER_DESTINATION} introuvable`;
-  document.getElementById("titre-fichiers").textContent = titre;
-  liste.innerHTML = "";
-  selectionnes.clear();
-
-  if (!dossierScanId) {
-    liste.innerHTML = `<p style="color:var(--orange);font-size:14px;">
-      Le dossier <strong>${DOSSIER_DESTINATION}</strong> n'existe pas encore dans ce dossier affaire.<br>
-      Déposez d'abord vos fichiers signés dans ce dossier Drive.
-    </p>`;
-    document.getElementById("btn-retour").disabled = true;
-    return;
-  }
-
-  if (!fichiers.length) {
-    liste.innerHTML = `<p style="color:#888;font-size:14px;">
-      Aucun fichier trouvé dans <strong>${DOSSIER_DESTINATION}</strong>.<br>
-      Déposez vos fichiers signés dans ce dossier Drive puis rechargez.
-    </p>`;
-    document.getElementById("btn-retour").disabled = true;
-    return;
-  }
-
-  fichiers.forEach(f => {
-    const info     = classerFichier(f.name);
-    const propose  = nouveauNom(f.name, info.type);
-    const item     = document.createElement("div");
-    item.className = "fichier-item selectionne";
-    item.dataset.id = f.id;
-    selectionnes.add(f.id);
-
-    item.innerHTML = `
-      <div class="check" onclick="toggleSelection('${f.id}', this, event.currentTarget.closest('.fichier-item'))">✓</div>
-      <div class="nom" style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:#999;margin-bottom:4px;word-break:break-all;">${f.name}</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:13px;color:#555;flex-shrink:0;">→</span>
-          <input id="inp-rename-${f.id}" type="text" value="${propose.replace(/"/g,'&quot;')}"
-                 style="flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--bleu2);
-                        border:1.5px solid var(--gris2);border-radius:6px;padding:5px 8px;outline:none;"
-                 onfocus="this.style.borderColor='var(--bleu2)'"
-                 onblur="this.style.borderColor='var(--gris2)'">
-        </div>
-      </div>
-      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;margin-top:2px;">${info.label}</span>`;
-    liste.appendChild(item);
-  });
-
-  document.getElementById("btn-retour").disabled = false;
-}
-
-function toggleSelection(id, checkEl, itemEl) {
-  if (selectionnes.has(id)) {
-    selectionnes.delete(id);
-    itemEl.classList.remove("selectionne");
-    checkEl.textContent = "";
-  } else {
-    selectionnes.add(id);
-    itemEl.classList.add("selectionne");
-    checkEl.textContent = "✓";
-  }
-  document.getElementById("btn-retour").disabled = selectionnes.size === 0;
-}
-
-function toutSelectionner() {
-  document.querySelectorAll(".fichier-item").forEach(item => {
-    const id = item.dataset.id;
-    selectionnes.add(id);
-    item.classList.add("selectionne");
-    item.querySelector(".check").textContent = "✓";
-  });
-  document.getElementById("btn-retour").disabled = false;
-}
-
-function toutDeselectionner() {
-  document.querySelectorAll(".fichier-item").forEach(item => {
-    const id = item.dataset.id;
-    selectionnes.delete(id);
-    item.classList.remove("selectionne");
-    item.querySelector(".check").textContent = "";
-  });
-  document.getElementById("btn-retour").disabled = true;
-}
-
-// ── Retour BO : renommer les fichiers sur place dans 3-SCANS_terrain ────────
-async function lancerRetourBO() {
-  const btn = document.getElementById("btn-retour");
-  btn.innerHTML = '<span class="spinner"></span>&nbsp;Renommage…';
-  btn.disabled = true;
-
-  const carteRes = document.getElementById("carte-resultats");
-  const listeRes = document.getElementById("liste-resultats");
-  carteRes.classList.remove("hidden");
-  listeRes.innerHTML = "";
-
-  let ok = 0, err = 0, skip = 0;
-  try {
-    for (const f of fichiersDrive) {
-      if (!selectionnes.has(f.id)) {
-        ajouterResultat(listeRes, "res-skip", "⏭", f.name, "non sélectionné");
-        skip++; continue;
-      }
-      // Récupérer le nom saisi par l'utilisateur (ou le nom proposé par défaut)
-      const inp = document.getElementById(`inp-rename-${f.id}`);
-      const nomCible = (inp ? inp.value.trim() : "") || nouveauNom(f.name, classerFichier(f.name).type);
-
-      if (nomCible === f.name) {
-        ajouterResultat(listeRes, "res-skip", "⏭", f.name, "nom inchangé");
-        skip++; continue;
-      }
-      try {
-        // PATCH : renomme le fichier sur place dans Drive (pas de déplacement)
-        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
-          method: "PATCH",
-          headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: nomCible })
-        });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        ajouterResultat(listeRes, "res-ok", "✅", f.name, `→ ${nomCible}`);
-        // Mettre à jour le nom affiché dans la liste
-        if (inp) { inp.value = nomCible; }
-        ok++;
-      } catch(e) {
-        ajouterResultat(listeRes, "res-err", "❌", f.name, e.message);
-        err++;
-      }
-    }
-
-    const resume = document.createElement("div");
-    resume.style.cssText = "margin-top:12px;padding:12px;border-radius:8px;background:#e8f4e8;font-weight:700;font-size:15px;";
-    resume.textContent = `${ok} fichier(s) renommé(s)` +
-      (skip ? `  —  ${skip} ignoré(s)` : "") +
-      (err  ? `  —  ${err} erreur(s)` : "  ✅");
-    listeRes.appendChild(resume);
-
-  } catch(e) {
-    ajouterResultat(listeRes, "res-err", "❌", "Erreur générale", e.message);
-  } finally {
-    btn.innerHTML = "✅&nbsp; Appliquer les renommages";
-    btn.disabled = selectionnes.size === 0;
-  }
-}
 
 function ajouterResultat(container, cls, icon, nom, detail) {
   const d = document.createElement("div");
@@ -976,10 +784,9 @@ function reinitialiser() {
   document.getElementById("inp-dossier").value = "";
   document.getElementById("zone-tabs").classList.add("hidden");
   document.getElementById("carte-terrain").classList.add("hidden");
-  document.getElementById("carte-fichiers").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("lbl-dossier-err").textContent = "";
-  fichiersDrive = []; fichiersTerrain = []; selectionnes.clear(); selectionnesTerrain.clear();
+  fichiersTerrain = []; selectionnesTerrain.clear();
   dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
   _resetBoutonZip();
@@ -991,7 +798,7 @@ function _resetBoutonZip() {
   const btn = document.getElementById("btn-zip");
   if (!btn) return;
   btn.disabled = false;
-  btn.innerHTML = "📦&nbsp; Tout télécharger en ZIP";
+  btn.innerHTML = "📦&nbsp; Télécharger tout en ZIP";
   btn.style.background = "";
   document.getElementById("zip-progress").classList.add("hidden");
   document.getElementById("zip-barre").style.width = "0%";
