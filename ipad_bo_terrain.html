@@ -381,8 +381,10 @@ function classerFichier(nom) {
     return { type: "tableau",  badge: "badge-tableau", label: "Tableau BO" };
   if (n.includes("prepa") && n.includes("bo"))
     return { type: "prepa",    badge: "badge-prepa",   label: "Prépa BO" };
-  if (n.includes("dmpc") || n.includes("pouvoir"))
+  if (n.includes("dmpc") && (n.includes("pouvoir") || n.includes("pouv")))
     return { type: "dmpc",     badge: "badge-dmpc",    label: "Pouvoir DMPC" };
+  if (n.includes("titre") || n.includes("acte"))
+    return { type: "titre",    badge: "badge-autre",   label: "Titre" };
   return   { type: "autre",    badge: "badge-autre",   label: "Autre" };
 }
 
@@ -397,6 +399,7 @@ function nouveauNom(nomOriginal, type) {
   if (type === "tableau") return stemPropre + "_sign" + ext;
   if (type === "prepa")   return "BO_terrain_sign" + ext;
   if (type === "dmpc")    return stemPropre + "_sign_a-verifier" + ext;
+  if (type === "titre")   return "titre_" + stemPropre + "_sign" + ext;
   return stemPropre + "_sign" + ext;
 }
 
