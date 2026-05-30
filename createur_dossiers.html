@@ -8,85 +8,96 @@
 <title>A2GEO — Créateur de dossiers</title>
 <style>
   :root {
-    --bleu:  #003399; --bleu2: #0055CC; --vert: #1a7a1a;
-    --rouge: #cc2200; --gris:  #f2f4f8; --gris2: #dde2ec;
-    --blanc: #ffffff; --text:  #1a1a2e; --r: 14px;
+    --bleu:#003399; --bleu2:#0055CC; --vert:#1a7a1a;
+    --rouge:#cc2200; --orange:#cc6600;
+    --gris:#f2f4f8; --gris2:#dde2ec; --text:#1a1a2e; --r:14px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; background: var(--gris);
-         color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,"Segoe UI",sans-serif; background:var(--gris);
+         color:var(--text); min-height:100vh; padding-bottom:50px; }
 
-  header { background: var(--bleu); color: white; padding: 18px 20px 14px;
-           display: flex; align-items: center; gap: 12px; }
-  header h1 { font-size: 20px; font-weight: 700; }
-  header p  { font-size: 12px; opacity: .7; margin-top: 2px; }
+  header { background:var(--bleu); color:white; padding:18px 20px 14px;
+           display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:20px; font-weight:700; }
+  header p  { font-size:12px; opacity:.7; margin-top:2px; }
 
-  .card { background: white; border-radius: var(--r); margin: 14px; padding: 20px;
-          box-shadow: 0 2px 10px rgba(0,0,0,.09); }
-  .card h2 { font-size: 15px; font-weight: 700; color: var(--bleu); margin-bottom: 14px; }
+  .card { background:white; border-radius:var(--r); margin:14px; padding:20px;
+          box-shadow:0 2px 10px rgba(0,0,0,.09); }
+  .card h2 { font-size:15px; font-weight:700; color:var(--bleu); margin-bottom:14px; }
 
-  /* Saisie */
-  .saisie-row { display: flex; align-items: center; gap: 0; }
-  .prefixe { font-size: 22px; font-weight: 800; color: var(--bleu2);
-             background: var(--gris); border: 2px solid var(--gris2);
-             border-right: none; border-radius: 10px 0 0 10px;
-             padding: 13px 12px 13px 16px; white-space: nowrap; line-height: 1; }
-  #inp-num { width: 110px; font-size: 28px; font-weight: 900; color: var(--bleu2);
-             border: 2px solid var(--gris2); border-left: none;
-             border-radius: 0 10px 10px 0; padding: 10px 12px;
-             text-align: center; outline: none; letter-spacing: 3px;
-             -webkit-appearance: none; background: white; }
-  #inp-num:focus { border-color: var(--bleu2); }
-  #apercu { font-size: 13px; color: #888; margin-top: 8px; }
-  #apercu strong { color: var(--bleu2); }
+  /* ── Étapes config ── */
+  .step { display:flex; gap:12px; align-items:flex-start; padding:10px 0;
+          border-bottom:1px solid var(--gris2); }
+  .step:last-child { border-bottom:none; }
+  .step-num { width:28px; height:28px; border-radius:50%; background:var(--bleu2);
+              color:white; font-weight:800; font-size:13px; flex-shrink:0;
+              display:flex; align-items:center; justify-content:center; }
+  .step-txt { font-size:14px; line-height:1.6; }
+  .step-txt code { background:#eef3ff; color:var(--bleu2); border-radius:5px;
+                   padding:1px 6px; font-size:13px; font-family:monospace; font-weight:700; }
 
-  /* Boutons */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-         border: none; border-radius: 10px; padding: 14px 20px;
-         font-size: 16px; font-weight: 700; cursor: pointer;
-         transition: opacity .15s, transform .1s; -webkit-appearance: none; width: 100%; }
-  .btn:active { opacity: .8; transform: scale(.97); }
-  .btn-primary   { background: var(--bleu2); color: white; }
-  .btn-success   { background: var(--vert);  color: white; }
-  .btn-secondary { background: var(--gris2); color: var(--text); font-weight: 600; }
-  .btn:disabled  { opacity: .4; cursor: not-allowed; transform: none; }
-  .btn-sm { padding: 10px 14px; font-size: 14px; width: auto; }
+  /* ── Saisie ── */
+  .saisie-row { display:flex; align-items:stretch; gap:0; margin-bottom:10px; }
+  .prefixe { font-size:22px; font-weight:800; color:var(--bleu2);
+             background:var(--gris); border:2px solid var(--gris2);
+             border-right:none; border-radius:10px 0 0 10px;
+             padding:12px 12px 12px 16px; white-space:nowrap; line-height:1;
+             display:flex; align-items:center; }
+  #inp-num { width:120px; font-size:28px; font-weight:900; color:var(--bleu2);
+             border:2px solid var(--gris2); border-left:none;
+             border-radius:0 10px 10px 0; padding:10px 12px;
+             text-align:center; outline:none; letter-spacing:3px;
+             -webkit-appearance:none; background:white; }
+  #inp-num:focus { border-color:var(--bleu2); }
+  #apercu { font-size:13px; color:#888; min-height:20px; }
+  #apercu strong { color:var(--bleu2); }
 
-  /* Liste dossiers */
-  .dossier-item { display: flex; align-items: center; gap: 10px;
-                  padding: 12px 14px; border-radius: 10px; background: var(--gris);
-                  border: 1.5px solid var(--gris2); margin-bottom: 8px; }
-  .dossier-item .nom { flex: 1; font-size: 15px; font-weight: 700; color: var(--bleu2); }
-  .dossier-item .sup { width: 36px; height: 36px; border-radius: 8px; border: none;
-                        background: #fde8e8; color: var(--rouge); font-size: 18px;
-                        cursor: pointer; display: flex; align-items: center; justify-content: center;
-                        flex-shrink: 0; }
-  .liste-vide { text-align: center; color: #aaa; font-size: 14px; padding: 20px 0; }
+  /* ── Boutons ── */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
+         border:none; border-radius:10px; padding:14px 18px;
+         font-size:16px; font-weight:700; cursor:pointer; width:100%;
+         transition:opacity .15s, transform .1s; -webkit-appearance:none; }
+  .btn:active { opacity:.8; transform:scale(.97); }
+  .btn-primary   { background:var(--bleu2); color:white; }
+  .btn-success   { background:var(--vert);  color:white; }
+  .btn-secondary { background:var(--gris2); color:var(--text); font-weight:600; }
+  .btn:disabled  { opacity:.4; cursor:not-allowed; transform:none; }
 
-  /* Chemin cible */
-  .chemin-box { background: #eef3ff; border-radius: 10px; padding: 12px 14px;
-                font-size: 12px; color: var(--bleu); line-height: 1.7; margin-bottom: 14px; }
-  .chemin-box strong { font-size: 13px; }
+  /* ── Liste dossiers à créer ── */
+  .dossier-item { display:flex; align-items:center; gap:10px; padding:12px 14px;
+                  border-radius:10px; background:var(--gris);
+                  border:1.5px solid var(--gris2); margin-bottom:8px; }
+  .dossier-item.fait { background:#f0fff4; border-color:var(--vert); }
+  .dossier-item.fait .nom-doss { color:#888; text-decoration:line-through; }
+  .nom-doss { flex:1; font-size:15px; font-weight:700; color:var(--bleu2); }
+  .btn-creer-un { border:none; border-radius:8px; padding:10px 16px;
+                  font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap;
+                  background:var(--bleu2); color:white; -webkit-appearance:none; }
+  .btn-creer-un.fait { background:#d4f4d4; color:var(--vert); cursor:default; }
+  .btn-sup { width:34px; height:34px; border-radius:8px; border:none;
+             background:#fde8e8; color:var(--rouge); font-size:16px;
+             cursor:pointer; display:flex; align-items:center; justify-content:center;
+             flex-shrink:0; }
+  .liste-vide { text-align:center; color:#aaa; font-size:14px; padding:16px 0; }
 
-  /* Instructions */
-  .steps { margin: 0; padding-left: 18px; font-size: 13px; color: #555; line-height: 2; }
-  .steps li { margin-bottom: 2px; }
-  .steps strong { color: var(--text); }
+  /* ── Info box ── */
+  .info-box { border-radius:10px; padding:12px 14px; font-size:13px;
+              line-height:1.6; margin-bottom:14px; }
+  .info-bleu   { background:#eef3ff; color:var(--bleu); }
+  .info-vert   { background:#f0fff4; color:var(--vert); }
+  .info-orange { background:#fff3e0; color:#7a4e00; }
 
-  /* Spinner */
-  .spinner { display: inline-block; width: 20px; height: 20px;
-             border: 3px solid rgba(255,255,255,.4); border-top-color: white;
-             border-radius: 50%; animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  /* ── Accordéon config ── */
+  .accord-header { display:flex; align-items:center; justify-content:space-between;
+                   cursor:pointer; user-select:none; }
+  .accord-chevron { font-size:18px; transition:transform .2s; }
+  .accord-chevron.ouvert { transform:rotate(180deg); }
+  .accord-body { overflow:hidden; transition:max-height .3s ease; max-height:0; }
+  .accord-body.ouvert { max-height:600px; }
 
-  .hidden { display: none !important; }
-  .mt10 { margin-top: 10px; }
-  .mt14 { margin-top: 14px; }
-
-  /* Succès */
-  #carte-succes { text-align: center; }
-  #carte-succes .big { font-size: 52px; margin-bottom: 10px; }
-  #carte-succes p { color: #555; font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+  .hidden { display:none !important; }
+  .mt10 { margin-top:10px; }
+  .mt14 { margin-top:14px; }
 </style>
 </head>
 <body>
@@ -95,104 +106,145 @@
   <div style="font-size:28px;">📁</div>
   <div>
     <h1>Créateur de dossiers A2GEO</h1>
-    <p>Crée les dossiers affaire sur votre iPad</p>
+    <p>Crée les dossiers affaire dans Sur mon iPad › A2GEO</p>
   </div>
 </header>
 
-<!-- ── Carte saisie ── -->
-<div class="card" id="carte-saisie">
-  <h2>➕ Ajouter un dossier affaire</h2>
+<!-- ══ Config Raccourci (accordéon) ══ -->
+<div class="card">
+  <div class="accord-header" onclick="toggleConfig()">
+    <h2 style="margin:0;">⚙️ Installation du Raccourci <span style="font-size:11px;font-weight:400;color:#888;">(une seule fois)</span></h2>
+    <span class="accord-chevron" id="chevron-config">▼</span>
+  </div>
+  <div class="accord-body" id="corps-config">
+    <div style="margin-top:14px;">
+      <div class="info-box info-orange">
+        ⚠️ À faire <strong>une seule fois</strong> sur l'iPad. Ensuite la création de dossier se fait en <strong>1 tap</strong>.
+      </div>
 
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-txt">Ouvrir l'app <strong>Raccourcis</strong> sur l'iPad</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-txt">Appuyer sur <strong>+</strong> en haut à droite pour créer un nouveau raccourci</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-txt">Appuyer sur <strong>Ajouter une action</strong> → chercher <code>Créer un dossier</code> → le sélectionner</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-txt">Dans l'action, appuyer sur le champ <strong>Avec le nom</strong> → choisir <strong>Entrée du raccourci</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-txt">Appuyer sur le champ <strong>Emplacement</strong> → naviguer vers <code>Sur mon iPad › A2GEO</code></div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-txt">Appuyer sur le nom du raccourci en haut → le renommer exactement <code>A2GEO Dossier</code></div>
+      </div>
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-txt">Appuyer <strong>Terminé</strong> ✅ — le raccourci est prêt</div>
+      </div>
+
+      <button class="btn btn-success mt14" onclick="marquerConfigFait()">
+        ✅&nbsp; Raccourci installé — masquer ce guide
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Saisie ══ -->
+<div class="card">
+  <h2>➕ Ajouter un dossier à créer</h2>
   <div class="saisie-row">
     <div class="prefixe" id="prefixe-annee">2026_</div>
     <input type="tel" id="inp-num" placeholder="099" maxlength="3"
            inputmode="numeric" autocomplete="off"
-           oninput="onSaisie()" onkeydown="onKey(event)">
+           oninput="onSaisie()" onkeydown="if(event.key==='Enter'||event.key==='Go')ajouterDossier()">
   </div>
   <p id="apercu" class="mt10">Tapez le numéro d'affaire (3 chiffres)</p>
-
   <button class="btn btn-primary mt14" id="btn-ajouter" onclick="ajouterDossier()" disabled>
     ➕&nbsp; Ajouter à la liste
   </button>
 </div>
 
-<!-- ── Carte liste ── -->
+<!-- ══ Liste ══ -->
 <div class="card" id="carte-liste">
   <h2>📋 Dossiers à créer</h2>
 
-  <div class="chemin-box">
-    📍 Destination : <strong>Sur mon iPad › A2GEO › AAAA_NNN</strong><br>
-    Un ZIP par dossier, nommé <strong>AAAA_NNN.zip</strong>. iOS crée un dossier du même nom lors de l'extraction → enregistrez dans <strong>A2GEO</strong> et tapez pour dézipper.
+  <div class="info-box info-bleu" id="info-raccourci">
+    Appuyez sur <strong>Créer ▶</strong> pour chaque dossier. L'app Raccourcis s'ouvre,
+    crée le dossier dans <strong>A2GEO</strong>, puis revenez ici pour le suivant.
   </div>
 
   <div id="liste-dossiers">
     <div class="liste-vide" id="liste-vide">Aucun dossier ajouté</div>
   </div>
 
-  <div id="zone-generer" class="hidden">
-    <hr style="border:none;border-top:1px solid var(--gris2);margin:14px 0;">
-    <button class="btn btn-success" id="btn-generer" onclick="genererZip()">
-      📦&nbsp; Générer et enregistrer sur l'iPad
+  <div id="zone-tout" class="hidden mt10">
+    <hr style="border:none;border-top:1px solid var(--gris2);margin:10px 0 14px;">
+    <div id="resume-tout" style="font-size:13px;color:#555;margin-bottom:10px;"></div>
+    <button class="btn btn-secondary" onclick="reinitialiser()">
+      🔄&nbsp; Tout effacer
     </button>
-    <div id="gen-progress" class="hidden mt10" style="text-align:center;font-size:13px;color:#888;"></div>
   </div>
 </div>
 
-<!-- ── Instructions ── -->
-<div class="card">
-  <h2>📖 Comment ça marche</h2>
-  <ol class="steps">
-    <li>Tapez le <strong>numéro d'affaire</strong> (ex : <code>104</code>) → Ajouter</li>
-    <li>Répétez pour chaque affaire à créer</li>
-    <li>Appuyez sur <strong>Générer</strong> → la feuille de partage iOS s'ouvre</li>
-    <li>Choisir <strong>Enregistrer dans Fichiers</strong></li>
-    <li>Naviguer dans <strong>Sur mon iPad › A2GEO</strong> et confirmer pour chaque ZIP</li>
-    <li>Dans Fichiers, ouvrir <strong>A2GEO</strong> et taper sur chaque ZIP<br>
-        → iOS crée un dossier nommé <strong>2026_NNN</strong> (même nom que le ZIP) ✅</li>
-  </ol>
-</div>
-
-<!-- ── Succès ── -->
-<div class="card hidden" id="carte-succes">
-  <div class="big">✅</div>
-  <p>ZIP généré !<br>
-     Enregistrez-le dans <strong>Fichiers › Sur mon iPad</strong><br>
-     puis dézippez-le pour créer les dossiers.</p>
-  <button class="btn btn-primary" onclick="recommencer()">
-    ➕&nbsp; Créer d'autres dossiers
-  </button>
-</div>
-
 <script>
-const DOSSIER_PARENT = "A2GEO"; // dossier racine dans Sur mon iPad
-let dossiers = []; // liste des noms AAAA_NNN à créer
 const annee = new Date().getFullYear();
 document.getElementById("prefixe-annee").textContent = annee + "_";
 
+// ── Persistance config ────────────────────────────────────────────────────────
+const configFait = (() => { try { return localStorage.getItem("a2geo_raccourci_ok") === "1"; } catch(e) { return false; } })();
+if (configFait) {
+  // Accordéon fermé par défaut si déjà configuré
+} else {
+  // Ouvrir l'accordéon au premier lancement
+  document.getElementById("corps-config").classList.add("ouvert");
+  document.getElementById("chevron-config").classList.add("ouvert");
+}
+
+function toggleConfig() {
+  const corps   = document.getElementById("corps-config");
+  const chevron = document.getElementById("chevron-config");
+  const ouvert  = corps.classList.toggle("ouvert");
+  chevron.classList.toggle("ouvert", ouvert);
+}
+
+function marquerConfigFait() {
+  try { localStorage.setItem("a2geo_raccourci_ok", "1"); } catch(e) {}
+  document.getElementById("corps-config").classList.remove("ouvert");
+  document.getElementById("chevron-config").classList.remove("ouvert");
+}
+
+// ── Saisie ────────────────────────────────────────────────────────────────────
+let dossiers = []; // [{nom, fait}]
+
 function onSaisie() {
-  const v = document.getElementById("inp-num").value.replace(/\D/g, "");
+  const v = document.getElementById("inp-num").value.replace(/\D/g,"");
   document.getElementById("inp-num").value = v;
-  const ok = /^\d{3}$/.test(v);
+  const ok  = /^\d{3}$/.test(v);
   const nom = ok ? `${annee}_${v}` : "";
   document.getElementById("apercu").innerHTML = ok
-    ? `📁 <strong>${DOSSIER_PARENT} › ${nom}</strong>`
-    : `Tapez le numéro d'affaire (3 chiffres)`;
+    ? `📁 <strong>A2GEO › ${nom}</strong>`
+    : "Tapez le numéro d'affaire (3 chiffres)";
   document.getElementById("btn-ajouter").disabled = !ok;
 }
 
-function onKey(e) {
-  if (e.key === "Enter" || e.key === "Go") ajouterDossier();
-}
-
 function ajouterDossier() {
-  const v = document.getElementById("inp-num").value.replace(/\D/g, "");
+  const v = document.getElementById("inp-num").value.replace(/\D/g,"");
   if (!/^\d{3}$/.test(v)) return;
   const nom = `${annee}_${v}`;
-  if (dossiers.includes(nom)) {
+  if (dossiers.find(d => d.nom === nom)) {
     document.getElementById("apercu").innerHTML = `⚠️ <strong>${nom}</strong> déjà dans la liste`;
     return;
   }
-  dossiers.push(nom);
+  dossiers.push({ nom, fait: false });
   document.getElementById("inp-num").value = "";
   document.getElementById("apercu").textContent = "Tapez le numéro d'affaire (3 chiffres)";
   document.getElementById("btn-ajouter").disabled = true;
@@ -200,116 +252,64 @@ function ajouterDossier() {
   document.getElementById("inp-num").focus();
 }
 
+// ── Créer un dossier via Raccourci iOS ────────────────────────────────────────
+function creerDossier(nom) {
+  // Déclenche le raccourci "A2GEO Dossier" avec le nom comme entrée
+  window.location.href = `shortcuts://run-shortcut?name=A2GEO%20Dossier&input=text&text=${encodeURIComponent(nom)}`;
+  // Marquer comme fait après un court délai (l'utilisateur revient sur la page)
+  setTimeout(() => marquerFait(nom), 2500);
+}
+
+function marquerFait(nom) {
+  const d = dossiers.find(d => d.nom === nom);
+  if (d) { d.fait = true; renderListe(); }
+}
+
 function supprimerDossier(nom) {
-  dossiers = dossiers.filter(d => d !== nom);
+  dossiers = dossiers.filter(d => d.nom !== nom);
   renderListe();
 }
 
+// ── Rendu liste ───────────────────────────────────────────────────────────────
 function renderListe() {
-  const liste = document.getElementById("liste-dossiers");
-  const vide  = document.getElementById("liste-vide");
-  const zone  = document.getElementById("zone-generer");
+  const liste   = document.getElementById("liste-dossiers");
+  const vide    = document.getElementById("liste-vide");
+  const zoneTout = document.getElementById("zone-tout");
+  const resume  = document.getElementById("resume-tout");
 
-  // Vider sauf #liste-vide
-  Array.from(liste.children).forEach(c => {
-    if (c.id !== "liste-vide") c.remove();
-  });
+  Array.from(liste.children).forEach(c => { if (c.id !== "liste-vide") c.remove(); });
 
   if (!dossiers.length) {
     vide.classList.remove("hidden");
-    zone.classList.add("hidden");
+    zoneTout.classList.add("hidden");
     return;
   }
   vide.classList.add("hidden");
-  zone.classList.remove("hidden");
+  zoneTout.classList.remove("hidden");
 
-  dossiers.forEach(nom => {
+  const nbFait = dossiers.filter(d => d.fait).length;
+  resume.textContent = nbFait === dossiers.length
+    ? `✅ Tous les dossiers créés (${nbFait}/${dossiers.length})`
+    : `${nbFait}/${dossiers.length} créé${nbFait > 1 ? "s" : ""}`;
+
+  dossiers.forEach(({ nom, fait }) => {
     const item = document.createElement("div");
-    item.className = "dossier-item";
+    item.className = "dossier-item" + (fait ? " fait" : "");
     item.innerHTML = `
-      <span style="font-size:22px;">📁</span>
-      <div class="nom">${DOSSIER_PARENT} / ${nom}</div>
-      <button class="sup" onclick="supprimerDossier('${nom}')" title="Retirer">✕</button>`;
-    liste.insertBefore(item, document.getElementById("zone-generer"));
+      <span style="font-size:20px;">${fait ? "✅" : "📁"}</span>
+      <div class="nom-doss">A2GEO › ${nom}</div>
+      ${!fait ? `<button class="btn-creer-un" onclick="creerDossier('${nom}')">Créer ▶</button>` : ""}
+      ${fait  ? `<span style="font-size:13px;color:var(--vert);font-weight:700;">Créé ✓</span>` : ""}
+      ${!fait ? `<button class="btn-sup" onclick="supprimerDossier('${nom}')">✕</button>` : ""}`;
+    liste.insertBefore(item, document.getElementById("zone-tout") ? null : undefined);
+    liste.appendChild(item);
   });
 }
 
-async function genererZip() {
-  const btn      = document.getElementById("btn-generer");
-  const progress = document.getElementById("gen-progress");
-  btn.disabled   = true;
-  btn.innerHTML  = '<span class="spinner"></span>&nbsp;Génération…';
-  progress.classList.remove("hidden");
-
-  try {
-    // ── Un ZIP par dossier, nommé AAAA_NNN.zip ──────────────────────────────
-    // iOS nomme le dossier créé d'après le nom du ZIP → 2026_104.zip → dossier 2026_104
-    const zipFiles = [];
-    for (const nom of dossiers) {
-      progress.textContent = `Création de ${nom}.zip…`;
-      const zip  = new JSZip();
-      zip.file(".a2geo", ""); // placeholder à la racine (requis : ZIP non vide)
-      const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
-      zipFiles.push(new File([blob], `${nom}.zip`, { type: "application/zip" }));
-    }
-
-    const nbDoss = zipFiles.length;
-    progress.textContent = "Ouverture de la feuille de partage…";
-
-    // Partager tous les ZIPs en une seule fois via Web Share
-    let partage = false;
-    if (navigator.canShare && navigator.canShare({ files: zipFiles })) {
-      try {
-        await navigator.share({ files: zipFiles });
-        partage = true;
-      } catch(e) {
-        if (e.name !== "AbortError") console.warn("Share échoué:", e);
-      }
-    }
-
-    if (!partage) {
-      // Fallback bureau : téléchargement un par un
-      for (const f of zipFiles) {
-        const url = URL.createObjectURL(f);
-        const a   = document.createElement("a");
-        a.href = url; a.download = f.name;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        await new Promise(r => setTimeout(r, 600));
-        URL.revokeObjectURL(url);
-      }
-    }
-
-    progress.classList.add("hidden");
-    document.getElementById("carte-succes").classList.remove("hidden");
-    const listeNoms = dossiers.map(n => `<strong>${n}</strong>`).join(", ");
-    document.getElementById("carte-succes").querySelector("p").innerHTML =
-      nbDoss > 1
-        ? `${nbDoss} ZIPs générés 🎉<br>
-           Enregistrez chaque ZIP dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
-           puis appuyez sur chacun → le dossier du même nom est créé ✅`
-        : `ZIP généré 🎉<br>
-           Enregistrez <strong>${dossiers[0]}.zip</strong> dans <strong>Fichiers › Sur mon iPad › A2GEO</strong><br>
-           puis appuyez dessus → le dossier <strong>${dossiers[0]}</strong> est créé ✅`;
-
-  } catch(e) {
-    progress.textContent = "❌ Erreur : " + e.message;
-    btn.disabled = false;
-    btn.innerHTML = "📦&nbsp; Générer et enregistrer sur l'iPad";
-  }
-}
-
-function recommencer() {
+function reinitialiser() {
   dossiers = [];
   renderListe();
-  document.getElementById("carte-succes").classList.add("hidden");
-  document.getElementById("btn-generer").disabled = false;
-  document.getElementById("btn-generer").innerHTML = "📦&nbsp; Générer et enregistrer sur l'iPad";
-  document.getElementById("gen-progress").classList.add("hidden");
-  document.getElementById("inp-num").focus();
 }
 </script>
-
-<!-- JSZip -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
