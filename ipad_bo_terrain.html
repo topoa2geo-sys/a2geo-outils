@@ -134,6 +134,27 @@
   .zip-info-box { border-radius: 10px; padding: 11px 14px;
                   font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
 
+  /* ── Onglet Photos ── */
+  .section-titre {
+    font-size:13px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.6px; color:#aaa; margin:16px 0 8px;
+  }
+  .bloc-action {
+    background:var(--gris); border-radius:12px; padding:14px 16px;
+    margin-bottom:12px; border:1.5px solid var(--gris2);
+  }
+  .bloc-action h3 { font-size:14px; font-weight:700; color:var(--bleu); margin-bottom:6px; }
+  .bloc-action p  { font-size:13px; color:#555; line-height:1.5; margin-bottom:10px; }
+  .info-alerte {
+    background:#fff3cd; border-radius:10px; padding:11px 14px;
+    font-size:13px; color:#7a3e00; line-height:1.5; margin-top:10px;
+  }
+  .info-succes {
+    background:#f0fff4; border-radius:10px; padding:11px 14px;
+    font-size:13px; color:#1a7a1a; line-height:1.5; margin-top:10px;
+  }
+
+  /* ── Barre intervention DÉBUT / FIN ── */
   /* ── Barre intervention DÉBUT / FIN ── */
   #barre-intervention {
     display: none;                       /* cachée tant que non authentifié */
@@ -233,6 +254,9 @@
     </button>
     <button class="tab-btn" id="tab-upload" onclick="basculerOnglet('retour')">
       📤 Retour terrain
+    </button>
+    <button class="tab-btn" id="tab-photos" onclick="basculerOnglet('photos')">
+      📷 Photos & PDFs
     </button>
   </div>
 
@@ -357,6 +381,114 @@
         🔄&nbsp; Recommencer
       </button>
     </div>
+  </div>
+
+  <!-- ══ ONGLET PHOTOS & PDFs ══ -->
+  <div class="card hidden" id="carte-photos" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
+    <h2>📷 Photos & PDFs terrain → Drive</h2>
+
+    <div class="info-txt" style="margin-bottom:14px;font-size:13px;color:#555;line-height:1.6;">
+      Transfère les photos et PDFs créés pendant l'intervention
+      (<strong><span class="num-dossier-lbl"></span></strong>) vers Drive.
+    </div>
+
+    <!-- ── Section PHOTOS ── -->
+    <div class="section-titre">📷 Photos (pellicule iPad)</div>
+
+    <div class="bloc-action">
+      <h3>Étape 1 — Copier les photos vers le dossier affaire</h3>
+      <p>Le Raccourci iOS va chercher dans votre pellicule les photos prises
+         entre <strong>DÉBUT</strong> et <strong>FIN</strong> et les copie dans
+         <code>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></code>.</p>
+      <button class="btn btn-primary" id="btn-raccourci-photos" onclick="lancerRaccourciPhotos()" disabled>
+        📲&nbsp; Ouvrir Raccourci — Exporter photos terrain
+      </button>
+      <div id="info-raccourci-photos" class="hidden info-alerte" style="margin-top:10px;">
+        ⚠️ Raccourci iOS requis. Voir le guide d'installation ci-dessous.
+      </div>
+    </div>
+
+    <div class="bloc-action">
+      <h3>Étape 2 — Uploader les photos → Drive <code>4-photos</code></h3>
+      <p>Sélectionnez les photos copiées par le Raccourci dans le dossier affaire.</p>
+      <label class="upload-zone" for="inp-photos-locaux">
+        <input type="file" id="inp-photos-locaux" multiple
+               accept=".jpg,.jpeg,.png,.heic,.JPG,.JPEG,.PNG,.HEIC"
+               onchange="onPhotosLocauxChange(this)">
+        <div style="font-size:36px;margin-bottom:8px;">📷</div>
+        <div style="font-weight:700;color:var(--bleu);font-size:15px;">Sélectionner les photos</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;">
+          Depuis <strong>A2GEO › <span class="num-dossier-lbl"></span></strong>
+        </div>
+      </label>
+      <div id="liste-photos-locaux" style="margin-top:10px;"></div>
+      <div id="upload-photos-actions" class="hidden" style="margin-top:10px;">
+        <button class="btn btn-success" id="btn-upload-photos" onclick="lancerUploadPhotos()"
+                style="width:100%;justify-content:center;">
+          ☁️&nbsp; Uploader photos → Drive (4-photos)
+        </button>
+      </div>
+      <div id="upload-photos-progress" class="hidden" style="margin-top:14px;">
+        <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
+          <div id="upload-photos-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+        </div>
+        <p id="upload-photos-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+      </div>
+      <div id="upload-photos-resultats" class="hidden" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- ── Section PDFs ── -->
+    <div class="section-titre">📄 PDFs (Adobe Scan / Aperçu)</div>
+
+    <div class="bloc-action">
+      <h3>Uploader les PDFs → Drive <code>3-SCANS_terrain</code></h3>
+      <p>Sélectionnez les PDFs créés pendant l'intervention dans
+         <code>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></code>.
+         Les fichiers créés entre <strong>DÉBUT</strong> et <strong>FIN</strong>
+         sont pré-sélectionnés.</p>
+      <label class="upload-zone" for="inp-pdfs-locaux">
+        <input type="file" id="inp-pdfs-locaux" multiple
+               accept=".pdf,.PDF"
+               onchange="onPdfsLocauxChange(this)">
+        <div style="font-size:36px;margin-bottom:8px;">📄</div>
+        <div style="font-weight:700;color:var(--bleu);font-size:15px;">Sélectionner les PDFs</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;">
+          Adobe Scan / Aperçu — dans le dossier affaire
+        </div>
+      </label>
+      <div id="liste-pdfs-locaux" style="margin-top:10px;"></div>
+      <div id="upload-pdfs-actions" class="hidden" style="margin-top:10px;">
+        <button class="btn btn-success" id="btn-upload-pdfs" onclick="lancerUploadPdfs()"
+                style="width:100%;justify-content:center;">
+          ☁️&nbsp; Uploader PDFs → Drive (3-SCANS_terrain)
+        </button>
+      </div>
+      <div id="upload-pdfs-progress" class="hidden" style="margin-top:14px;">
+        <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
+          <div id="upload-pdfs-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+        </div>
+        <p id="upload-pdfs-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+      </div>
+      <div id="upload-pdfs-resultats" class="hidden" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- ── Guide Raccourci Photos ── -->
+    <details style="margin-top:8px;">
+      <summary style="font-size:13px;color:var(--bleu);font-weight:700;cursor:pointer;padding:8px 0;">
+        ⚙️ Installer le Raccourci iOS "A2GEO Photos terrain"
+      </summary>
+      <div style="font-size:13px;color:#555;line-height:1.7;margin-top:10px;padding:0 4px;">
+        <strong>À faire une seule fois :</strong><br>
+        1. Ouvrir l'app <strong>Raccourcis</strong><br>
+        2. Créer un nouveau raccourci → <strong>Ajouter une action</strong><br>
+        3. Rechercher <code>Trouver des photos</code> → sélectionner<br>
+        4. Filtre : <strong>Date de création</strong> → <strong>est entre</strong> → variable <em>Entrée</em> (1ère valeur) et variable <em>Entrée</em> (2ème valeur)<br>
+        5. Ajouter action : <code>Enregistrer dans le dossier de fichiers</code><br>
+        6. Dossier : <code>Sur mon iPad › A2GEO</code> → sous-dossier <em>Entrée (3ème valeur)</em><br>
+        7. Renommer le raccourci exactement : <code>A2GEO Photos terrain</code><br>
+        8. <strong>Terminé</strong> ✅
+      </div>
+    </details>
   </div>
 
 </div>
@@ -519,7 +651,9 @@ function basculerOnglet(nom) {
   ongletActif = nom;
   document.getElementById("tab-terrain").classList.toggle("actif", nom === "terrain");
   document.getElementById("tab-upload").classList.toggle("actif", nom === "retour");
+  document.getElementById("tab-photos").classList.toggle("actif", nom === "photos");
   document.getElementById("carte-terrain").classList.toggle("hidden", nom !== "terrain");
+  document.getElementById("carte-photos").classList.toggle("hidden", nom !== "photos");
   document.getElementById("carte-upload-terrain").classList.toggle("hidden", nom !== "retour");
 }
 
@@ -1186,6 +1320,11 @@ function _activerBarreIntervention(numDossier) {
   document.getElementById("btn-fin").disabled   = false;
   document.getElementById("statut-intervention").textContent = "";
   document.getElementById("statut-intervention").className  = "";
+  // Activer bouton Raccourci photos
+  const btnRP = document.getElementById("btn-raccourci-photos");
+  if (btnRP) btnRP.disabled = false;
+  // Mettre à jour les labels de dossier dans l'onglet Photos
+  document.querySelectorAll(".num-dossier-lbl").forEach(el => el.textContent = numDossier);
 }
 
 function _desactiverBarreIntervention() {
@@ -1308,5 +1447,292 @@ async function enregistrerFin() {
 
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ONGLET PHOTOS & PDFs
+// ══════════════════════════════════════════════════════════════════════════════
+
+const DOSSIER_PHOTOS  = "4-photos";
+let fichiersPhotos = [];
+let fichiersPdfs   = [];
+
+// ── Raccourci iOS Photos ──────────────────────────────────────────────────────
+function lancerRaccourciPhotos() {
+  const num = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  if (!num) return;
+
+  // Lire les dates depuis _contenuRef
+  let debut = "", fin = "";
+  if (_contenuRef) {
+    for (const l of _contenuRef.split("\n")) {
+      if (l.startsWith("DEBUT:")) debut = l.replace("DEBUT:", "").trim();
+      if (l.startsWith("FIN:"))   fin   = l.replace("FIN:", "").trim();
+    }
+  }
+  if (!debut) {
+    alert("⚠️ Appuyez d'abord sur DÉBUT avant d'aller sur le terrain pour définir la plage de dates.");
+    return;
+  }
+
+  // Passer début, fin et numéro dossier au Raccourci via l'URL shortcut
+  // Le Raccourci reçoit un texte "DEBUT|FIN|DOSSIER"
+  const param = encodeURIComponent(`${debut}|${fin || debut}|${num}`);
+  window.location.href = `shortcuts://run-shortcut?name=A2GEO%20Photos%20terrain&input=text&text=${param}`;
+
+  // Message après retour
+  setTimeout(() => {
+    const el = document.getElementById("info-raccourci-photos");
+    if (el) {
+      el.className = "info-succes";
+      el.classList.remove("hidden");
+      el.innerHTML = "✅ Raccourci lancé. Revenez ici après que les photos aient été copiées dans le dossier affaire, puis sélectionnez-les ci-dessous.";
+    }
+  }, 2000);
+}
+
+// ── Sélection photos locales ──────────────────────────────────────────────────
+async function onPhotosLocauxChange(input) {
+  const files = Array.from(input.files).filter(f =>
+    /\.(jpg|jpeg|png|heic)$/i.test(f.name)
+  );
+  if (!files.length) return;
+
+  // Filtrer par plage DÉBUT/FIN si disponible
+  let tsDebut = 0, tsFin = 0;
+  if (_contenuRef) {
+    for (const l of _contenuRef.split("\n")) {
+      if (l.startsWith("DEBUT:")) tsDebut = _parseDate(l.replace("DEBUT:", "").trim());
+      if (l.startsWith("FIN:"))   tsFin   = _parseDate(l.replace("FIN:", "").trim());
+    }
+  }
+  const limite = tsFin > 0 ? tsFin + 60000 : Date.now();
+
+  let selectionnes, autres;
+  if (tsDebut > 0) {
+    selectionnes = files.filter(f => {
+      const lm = f.lastModified || 0;
+      return lm >= tsDebut && lm <= limite;
+    });
+    // Si iOS ne donne pas de dates fiables → tout sélectionner
+    if (selectionnes.length === 0) selectionnes = files;
+    autres = files.filter(f => !selectionnes.includes(f));
+  } else {
+    selectionnes = files;
+    autres = [];
+  }
+
+  fichiersPhotos = [...selectionnes];
+  _afficherListeFichiers("liste-photos-locaux", selectionnes, autres,
+    "upload-photos-actions", "photo");
+}
+
+// ── Upload photos → Drive 4-photos ───────────────────────────────────────────
+async function lancerUploadPhotos() {
+  if (!fichiersPhotos.length) return;
+  const btn      = document.getElementById("btn-upload-photos");
+  const progress = document.getElementById("upload-photos-progress");
+  const barre    = document.getElementById("upload-photos-barre");
+  const label    = document.getElementById("upload-photos-label");
+  const resultats = document.getElementById("upload-photos-resultats");
+
+  btn.disabled = true;
+  progress.classList.remove("hidden");
+  resultats.innerHTML = "";
+
+  try {
+    // Créer/trouver 4-photos
+    const found = await chercherId(DOSSIER_PHOTOS, dossierAffaireId);
+    const photosFolderId = found || await creerDossier(DOSSIER_PHOTOS, dossierAffaireId);
+
+    let ok = 0, err = 0;
+    for (let i = 0; i < fichiersPhotos.length; i++) {
+      const f = fichiersPhotos[i];
+      label.textContent = `${i+1}/${fichiersPhotos.length} — ${f.name}`;
+      barre.style.width = `${Math.round((i+1)/fichiersPhotos.length*100)}%`;
+      try {
+        await uploaderFichierDrive(f, f.name, photosFolderId);
+        ok++;
+      } catch(e) { err++; }
+    }
+
+    label.textContent = `✅ ${ok} photo(s) uploadée(s)`;
+    resultats.innerHTML = `
+      <div class="info-succes">
+        ✅ ${ok} photo(s) uploadée(s) dans <strong>${DOSSIER_PHOTOS}</strong>
+        ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
+      </div>
+      <div class="info-alerte" style="margin-top:8px;">
+        📱 <strong>Suppression des photos :</strong> iOS ne permet pas la suppression automatique.
+        Allez dans l'app <strong>Photos</strong> → sélectionnez les photos du terrain → Supprimer.
+        Vous pouvez les identifier par la date : entre <strong>${_plageTexte()}</strong>.
+      </div>`;
+    resultats.classList.remove("hidden");
+
+  } catch(e) {
+    label.textContent = "❌ Erreur : " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Sélection PDFs locaux ─────────────────────────────────────────────────────
+async function onPdfsLocauxChange(input) {
+  const files = Array.from(input.files).filter(f => /\.pdf$/i.test(f.name));
+  if (!files.length) return;
+
+  let tsDebut = 0, tsFin = 0;
+  if (_contenuRef) {
+    for (const l of _contenuRef.split("\n")) {
+      if (l.startsWith("DEBUT:")) tsDebut = _parseDate(l.replace("DEBUT:", "").trim());
+      if (l.startsWith("FIN:"))   tsFin   = _parseDate(l.replace("FIN:", "").trim());
+    }
+  }
+  const limite = tsFin > 0 ? tsFin + 60000 : Date.now();
+
+  let selectionnes, autres;
+  if (tsDebut > 0) {
+    selectionnes = files.filter(f => {
+      const lm = f.lastModified || 0;
+      return lm >= tsDebut && lm <= limite;
+    });
+    if (selectionnes.length === 0) selectionnes = files; // fallback tout sélectionner
+    autres = files.filter(f => !selectionnes.includes(f));
+  } else {
+    selectionnes = files;
+    autres = [];
+  }
+
+  fichiersPdfs = [...selectionnes];
+  _afficherListeFichiers("liste-pdfs-locaux", selectionnes, autres,
+    "upload-pdfs-actions", "pdf");
+}
+
+// ── Upload PDFs → Drive 3-SCANS_terrain ──────────────────────────────────────
+async function lancerUploadPdfs() {
+  if (!fichiersPdfs.length) return;
+  const btn      = document.getElementById("btn-upload-pdfs");
+  const progress = document.getElementById("upload-pdfs-progress");
+  const barre    = document.getElementById("upload-pdfs-barre");
+  const label    = document.getElementById("upload-pdfs-label");
+  const resultats = document.getElementById("upload-pdfs-resultats");
+
+  btn.disabled = true;
+  progress.classList.remove("hidden");
+  resultats.innerHTML = "";
+
+  try {
+    const scanId = await _obtenirDossierScans();
+    let ok = 0, err = 0;
+    for (let i = 0; i < fichiersPdfs.length; i++) {
+      const f = fichiersPdfs[i];
+      label.textContent = `${i+1}/${fichiersPdfs.length} — ${f.name}`;
+      barre.style.width = `${Math.round((i+1)/fichiersPdfs.length*100)}%`;
+      try {
+        await uploaderFichierDrive(f, f.name, scanId);
+        ok++;
+      } catch(e) { err++; }
+    }
+
+    label.textContent = `✅ ${ok} PDF(s) uploadé(s)`;
+    resultats.innerHTML = `
+      <div class="info-succes">
+        ✅ ${ok} PDF(s) uploadé(s) dans <strong>${DOSSIER_DESTINATION}</strong>
+        ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
+      </div>
+      <div class="info-alerte" style="margin-top:8px;">
+        🗑️ <strong>Suppression des PDFs :</strong> allez dans l'app <strong>Fichiers</strong>
+        → <em>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></em>
+        → appui long sur les PDFs → Supprimer.
+      </div>`;
+    resultats.classList.remove("hidden");
+
+  } catch(e) {
+    label.textContent = "❌ Erreur : " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Afficher liste de fichiers avec toggle coche/décoche ──────────────────────
+function _afficherListeFichiers(listeId, selectionnes, autres, actionsId, type) {
+  const liste   = document.getElementById(listeId);
+  const actions = document.getElementById(actionsId);
+  liste.innerHTML = "";
+
+  const refTab = type === "photo" ? fichiersPhotos : fichiersPdfs;
+  const total  = selectionnes.length + autres.length;
+  const icone  = type === "photo" ? "📷" : "📄";
+
+  if (total === 0) return;
+
+  // Bandeau
+  const info = document.createElement("div");
+  info.style.cssText = "background:#eef3ff;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--bleu);margin-bottom:10px;line-height:1.5;";
+  info.innerHTML = `${icone} <strong>${selectionnes.length}</strong> fichier(s) sélectionné(s) sur ${total} · Tap pour cocher/décocher`;
+  liste.appendChild(info);
+
+  function creerItem(f, coche) {
+    const taille = Math.round(f.size / 1024) + " Ko";
+    const item   = document.createElement("div");
+    item.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;
+      border-radius:10px;border:1.5px solid ${coche ? 'var(--vert)' : 'var(--gris2)'};
+      background:${coche ? '#f0fff4' : 'white'};margin-bottom:6px;
+      opacity:${coche ? '1' : '0.5'};cursor:pointer;transition:all .15s;`;
+
+    const render = (estCoche) => {
+      item.innerHTML = `
+        <div style="width:26px;height:26px;border-radius:6px;border:2px solid ${estCoche ? 'var(--vert)' : '#ccc'};
+             background:${estCoche ? 'var(--vert)' : 'white'};display:flex;align-items:center;
+             justify-content:center;font-size:14px;color:white;flex-shrink:0;">${estCoche ? '✓' : ''}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:${estCoche ? 'var(--text)' : '#aaa'};word-break:break-all;">${f.name}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille}</div>
+        </div>`;
+    };
+    render(coche);
+
+    item.addEventListener("click", () => {
+      const idx = refTab.indexOf(f);
+      if (idx >= 0) {
+        refTab.splice(idx, 1);
+        item.style.opacity = "0.5";
+        item.style.borderColor = "var(--gris2)";
+        item.style.background = "white";
+        render(false);
+      } else {
+        refTab.push(f);
+        item.style.opacity = "1";
+        item.style.borderColor = "var(--vert)";
+        item.style.background = "#f0fff4";
+        render(true);
+      }
+      actions.classList.toggle("hidden", refTab.length === 0);
+    });
+    return item;
+  }
+
+  selectionnes.forEach(f => liste.appendChild(creerItem(f, true)));
+  if (autres.length) {
+    const sep = document.createElement("div");
+    sep.style.cssText = "font-size:11px;font-weight:700;text-transform:uppercase;color:#bbb;margin:10px 0 4px;";
+    sep.textContent = `Non sélectionnés — ${autres.length} (tap pour ajouter)`;
+    liste.appendChild(sep);
+    autres.forEach(f => liste.appendChild(creerItem(f, false)));
+  }
+
+  actions.classList.toggle("hidden", selectionnes.length === 0);
+}
+
+// Formate la plage de dates pour les messages d'alerte
+function _plageTexte() {
+  if (!_contenuRef) return "l'intervention";
+  let debut = "", fin = "";
+  for (const l of _contenuRef.split("\n")) {
+    if (l.startsWith("DEBUT:")) debut = l.replace("DEBUT:", "").trim();
+    if (l.startsWith("FIN:"))   fin   = l.replace("FIN:", "").trim();
+  }
+  return debut ? `${debut}${fin ? " → " + fin : ""}` : "l'intervention";
+}
+
 </body>
 </html>
