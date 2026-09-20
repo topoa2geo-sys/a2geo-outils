@@ -133,6 +133,41 @@
   .upload-zone input[type=file] { display: none; }
   .zip-info-box { border-radius: 10px; padding: 11px 14px;
                   font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+
+  /* ── Barre intervention DÉBUT / FIN ── */
+  #barre-intervention {
+    display: none;                       /* cachée tant que non authentifié */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 10px 16px;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  #barre-intervention.visible { display: flex; }
+  #barre-intervention .lbl-dossier-barre {
+    font-size: 13px; color: #555; flex: 1; min-width: 80px;
+  }
+  .btn-debut {
+    background: #1976D2; color: #fff; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 15px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .btn-fin {
+    background: #E53935; color: #fff; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 15px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .btn-debut:disabled, .btn-fin:disabled { opacity: .45; cursor: default; }
+  #statut-intervention {
+    font-size: 12px; color: #555; flex-basis: 100%;
+    min-height: 16px; text-align: center;
+  }
+  #statut-intervention.ok  { color: #2E7D32; }
+  #statut-intervention.err { color: #C62828; }
 </style>
 </head>
 <body>
@@ -147,6 +182,18 @@
     <div id="version-date">—</div>
   </div>
 </header>
+
+<!-- ══════════ BARRE INTERVENTION (sticky, toujours visible) ══════════ -->
+<div id="barre-intervention">
+  <span class="lbl-dossier-barre" id="lbl-dossier-barre">—</span>
+  <button class="btn-debut" id="btn-debut" onclick="enregistrerDebut()" disabled>
+    ▶ DÉBUT
+  </button>
+  <button class="btn-fin"   id="btn-fin"   onclick="enregistrerFin()"   disabled>
+    ⏹ FIN
+  </button>
+  <div id="statut-intervention"></div>
+</div>
 
 <!-- ══════════ ÉCRAN AUTH ══════════ -->
 <div id="ecran-auth" class="card">
@@ -356,6 +403,8 @@ function _tokenValide() {
   } catch(e) { return false; }
 }
 function _afficherEcranPrincipal() {
+  // Rendre la barre visible (boutons désactivés jusqu'au chargement du dossier)
+  document.getElementById("barre-intervention").classList.add("visible");
   document.getElementById("ecran-auth").classList.add("hidden");
   document.getElementById("ecran-principal").classList.remove("hidden");
   document.getElementById("inp-dossier").focus();
@@ -760,6 +809,8 @@ async function chargerFichiers() {
     }
 
     fichiersTerrain = await chargerFichiersTerrain(dossierAffaireId);
+    // Activer la barre DÉBUT/FIN
+    _activerBarreIntervention(num);
 
     // Afficher onglets + contenu
     document.getElementById("zone-tabs").classList.remove("hidden");
@@ -784,6 +835,7 @@ function ajouterResultat(container, cls, icon, nom, detail) {
 }
 
 function reinitialiser() {
+  _desactiverBarreIntervention();
   document.getElementById("inp-dossier").value = "";
   document.getElementById("zone-tabs").classList.add("hidden");
   document.getElementById("carte-terrain").classList.add("hidden");
@@ -811,95 +863,193 @@ function _resetBoutonZip() {
 // ── Retour terrain : sélection locale → renommage → upload Drive ─────────────
 let fichiersAUploader = [];
 
+// ── Noms des fichiers de préparation originaux (non modifiés sur le terrain) ─
+// Ils sont exclus de la sélection automatique si l'utilisateur n'a pas appuyé DÉBUT
+// mais inclus quand même dans la liste pour sélection manuelle.
+function _estFichierPrepa(nom) {
+  const n = nom.toLowerCase();
+  // Fichiers générés par l'outil Prépa terrain : contiennent PREPA_ ou prepa_
+  return n.startsWith("prepa_") || n.includes("_prepa_");
+}
+
 async function onFichiersLocauxChange(input) {
   const files = Array.from(input.files);
   if (!files.length) return;
 
-  // Chercher le fichier de référence de date
-  const refFile = files.find(f => f.name === "_DATE_REFERENCE.txt");
-  let timestamp = 0;
-  if (refFile) {
+  // Exclure _DATE_REFERENCE.txt local (on utilise celui du Drive désormais)
+  const autresFichiers = files.filter(f => f.name !== "_DATE_REFERENCE.txt");
+
+  // ── Lire la plage DÉBUT/FIN depuis Drive (si dossier chargé) ─────────────
+  let tsDebut = 0;
+  let tsFin   = 0;
+  let modeAuto = false;
+
+  if (dossierAffaireId && _contenuRef) {
+    // _contenuRef est rempli par les boutons DÉBUT/FIN
+    const lignes = _contenuRef.split("\n");
+    for (const l of lignes) {
+      if (l.startsWith("DEBUT:")) {
+        tsDebut = _parseDate(l.replace("DEBUT:", "").trim());
+      }
+      if (l.startsWith("FIN:")) {
+        tsFin = _parseDate(l.replace("FIN:", "").trim());
+      }
+    }
+    modeAuto = tsDebut > 0;
+  } else if (dossierAffaireId) {
+    // Essayer de lire depuis Drive si DÉBUT n'a pas encore été pressé cette session
     try {
-      const content = await refFile.text();
-      timestamp = parseInt(content.trim().split("\n")[0]);
+      const contenu = await _lireContenuRef();
+      if (contenu) {
+        _contenuRef = contenu;
+        const lignes = contenu.split("\n");
+        for (const l of lignes) {
+          if (l.startsWith("DEBUT:")) tsDebut = _parseDate(l.replace("DEBUT:", "").trim());
+          if (l.startsWith("FIN:"))   tsFin   = _parseDate(l.replace("FIN:", "").trim());
+        }
+        modeAuto = tsDebut > 0;
+      }
     } catch(e) {}
   }
 
-  // Exclure le fichier de référence
-  const autresFichiers = files.filter(f => f.name !== "_DATE_REFERENCE.txt");
+  // ── Classer les fichiers ──────────────────────────────────────────────────
+  let selectionnes, autres;
 
-  if (timestamp > 0) {
-    // Mode auto : détecter les fichiers modifiés après le téléchargement du ZIP
-    const modifies    = autresFichiers.filter(f => f.lastModified > timestamp);
-    const nonModifies = autresFichiers.filter(f => f.lastModified <= timestamp);
-    fichiersAUploader = modifies;
-    afficherFichiersLocaux(modifies, nonModifies, true);
+  if (modeAuto && tsDebut > 0) {
+    // Mode auto : fichiers modifiés entre DÉBUT et FIN (ou après DÉBUT si pas de FIN)
+    // Sur iOS lastModified n'est pas fiable → on utilise une heuristique par nom :
+    // les fichiers qui ne sont PAS des fichiers de prépa sont considérés comme signés
+    const limite = tsFin > 0 ? tsFin : Date.now();
+    selectionnes = autresFichiers.filter(f => {
+      // Fiabilité partielle de lastModified : si iOS donne une date utile, on l'utilise
+      const lm = f.lastModified || 0;
+      if (lm > tsDebut && lm <= limite + 60000) return true; // 1 min de marge
+      // Fallback heuristique nom : fichier déjà renommé _sign = déjà traité
+      if (/_sign/i.test(f.name)) return true;
+      // Fichiers Prépa originaux probablement non modifiés
+      return false;
+    });
+    autres = autresFichiers.filter(f => !selectionnes.includes(f));
   } else {
-    // Mode manuel : pas de fichier référence → tous les fichiers sélectionnés
-    fichiersAUploader = autresFichiers;
-    afficherFichiersLocaux(autresFichiers, [], false);
+    // Mode manuel : tous cochés sauf les fichiers de prépa reconnus
+    selectionnes = autresFichiers.filter(f => !_estFichierPrepa(f.name));
+    autres       = autresFichiers.filter(f =>  _estFichierPrepa(f.name));
   }
+
+  fichiersAUploader = [...selectionnes];
+  afficherFichiersLocaux(selectionnes, autres, modeAuto, tsDebut, tsFin);
 }
 
-function afficherFichiersLocaux(modifies, nonModifies, modeAuto) {
+// Parse "dd/mm/yyyy HH:MM:SS" → timestamp ms
+function _parseDate(str) {
+  try {
+    const [date, time] = str.split(" ");
+    const [d, m, y]   = date.split("/");
+    const [h, mn, s]  = time.split(":");
+    return new Date(y, m-1, d, h, mn, s).getTime();
+  } catch { return 0; }
+}
+
+function afficherFichiersLocaux(selectionnes, autres, modeAuto, tsDebut, tsFin) {
   const liste   = document.getElementById("liste-fichiers-locaux");
   const actions = document.getElementById("upload-actions");
   const resume  = document.getElementById("resume-detection");
   liste.innerHTML = "";
 
-  // Bandeau mode
-  if (modeAuto) {
-    const info = document.createElement("div");
-    info.style.cssText = "background:#eef3ff;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--bleu);margin-bottom:10px;line-height:1.5;";
-    info.innerHTML = `🔍 Détection automatique — <strong>${modifies.length}</strong> fichier(s) signé(s) sur ${modifies.length + nonModifies.length}`;
-    liste.appendChild(info);
-  } else {
-    const info = document.createElement("div");
-    info.style.cssText = "background:#f4f4f4;border-radius:10px;padding:10px 14px;font-size:13px;color:#555;margin-bottom:10px;";
-    info.innerHTML = `📂 Mode manuel — ${modifies.length} fichier(s) sélectionné(s)`;
-    liste.appendChild(info);
-  }
+  const total = selectionnes.length + autres.length;
 
-  function creerItem(f, estSigne) {
-    const info     = classerFichier(f.name);
-    const nomCible = nouveauNom(f.name, info.type);
+  // ── Bandeau mode ──────────────────────────────────────────────────────────
+  const info = document.createElement("div");
+  info.style.cssText = "border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:10px;line-height:1.6;";
+  if (modeAuto && tsDebut > 0) {
+    const fmt = ts => ts > 0 ? new Date(ts).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : "—";
+    info.style.background = "#eef3ff";
+    info.style.color = "var(--bleu)";
+    info.innerHTML = `🔍 Détection DÉBUT/FIN — <strong>${selectionnes.length}</strong> fichier(s) sélectionné(s) sur ${total}<br>
+      <span style="font-size:11px;opacity:.8;">Plage : ${fmt(tsDebut)} → ${tsDebut && tsFin ? fmt(tsFin) : "en cours"} · Tap pour cocher/décocher</span>`;
+  } else {
+    info.style.background = "#f4f4f4";
+    info.style.color = "#555";
+    info.innerHTML = `📂 Sélection manuelle — <strong>${selectionnes.length}</strong> fichier(s) sélectionné(s) sur ${total}<br>
+      <span style="font-size:11px;opacity:.8;">Appuyez DÉBUT avant d'aller sur le terrain pour une détection automatique · Tap pour cocher/décocher</span>`;
+  }
+  liste.appendChild(info);
+
+  // ── Créer un item cliquable (coche/décoche) ───────────────────────────────
+  function creerItem(f, coche) {
+    const inf      = classerFichier(f.name);
+    const nomCible = nouveauNom(f.name, inf.type);
     const taille   = Math.round(f.size / 1024) + " Ko";
-    const item     = document.createElement("div");
-    item.className = "fichier-local-item" + (estSigne ? " modifie" : "");
-    item.style.opacity = estSigne ? "1" : "0.45";
-    item.innerHTML = `
-      <div class="terrain-cb ${estSigne ? 'coche' : ''}" style="border-radius:6px;flex-shrink:0;">${estSigne ? '✓' : '—'}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:#999;word-break:break-all;">${f.name}</div>
-        <div style="font-size:13px;font-weight:700;color:${estSigne ? 'var(--vert)' : '#aaa'};margin-top:3px;">
-          ${estSigne ? '→ ' + nomCible : '(non modifié — ignoré)'}
+
+    const item = document.createElement("div");
+    item.className = "fichier-local-item" + (coche ? " modifie" : "");
+    item.style.cssText = `opacity:${coche ? "1" : "0.55"};cursor:pointer;transition:opacity .15s;`;
+    item.dataset.nom = f.name;
+
+    const renderItem = (estCoche) => {
+      item.innerHTML = `
+        <div class="terrain-cb ${estCoche ? 'coche' : ''}"
+             style="border-radius:6px;flex-shrink:0;border:2px solid ${estCoche ? 'var(--vert)' : '#ccc'};
+                    width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+                    font-size:16px;background:${estCoche ? 'var(--vert)' : 'white'};color:white;">
+          ${estCoche ? '✓' : ''}
         </div>
-        <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille}</div>
-      </div>
-      <span class="type-badge ${info.badge}" style="flex-shrink:0;align-self:flex-start;">${info.label}</span>`;
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:#999;word-break:break-all;">${f.name}</div>
+          <div style="font-size:13px;font-weight:700;color:${estCoche ? 'var(--vert)' : '#aaa'};margin-top:3px;">
+            ${estCoche ? '→ ' + nomCible : '(ignoré)'}
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">${taille}</div>
+        </div>
+        <span class="type-badge ${inf.badge}" style="flex-shrink:0;align-self:flex-start;">${inf.label}</span>`;
+    };
+
+    renderItem(coche);
+
+    // Toggle au tap
+    item.addEventListener("click", () => {
+      const estCoche = fichiersAUploader.some(u => u.name === f.name);
+      if (estCoche) {
+        fichiersAUploader = fichiersAUploader.filter(u => u.name !== f.name);
+        item.style.opacity = "0.55";
+        item.classList.remove("modifie");
+        renderItem(false);
+      } else {
+        fichiersAUploader.push(f);
+        item.style.opacity = "1";
+        item.classList.add("modifie");
+        renderItem(true);
+      }
+      // Mettre à jour le compteur
+      const nb = fichiersAUploader.length;
+      resume.textContent = `${nb} fichier(s) sélectionné(s) à uploader`;
+      actions.classList.toggle("hidden", nb === 0);
+    });
+
     return item;
   }
 
-  modifies.forEach(f => liste.appendChild(creerItem(f, true)));
-  if (nonModifies.length) {
+  // Afficher les cochés en premier, puis les non cochés
+  selectionnes.forEach(f => liste.appendChild(creerItem(f, true)));
+  if (autres.length) {
     const sep = document.createElement("div");
-    sep.style.cssText = "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#bbb;margin:10px 0 4px;";
-    sep.textContent = `Non modifiés — ${nonModifies.length} ignoré(s)`;
+    sep.style.cssText = "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#bbb;margin:12px 0 4px;";
+    sep.textContent = `Non sélectionnés — ${autres.length} (tap pour ajouter)`;
     liste.appendChild(sep);
-    nonModifies.forEach(f => liste.appendChild(creerItem(f, false)));
+    autres.forEach(f => liste.appendChild(creerItem(f, false)));
   }
 
-  if (modifies.length === 0 && modeAuto) {
+  if (selectionnes.length === 0) {
     const warn = document.createElement("div");
     warn.style.cssText = "background:#fff3cd;border-radius:10px;padding:12px 14px;font-size:13px;color:#7a3e00;margin-top:8px;";
-    warn.innerHTML = "⚠️ Aucun fichier modifié détecté. Avez-vous bien sélectionné le dossier <strong>" + document.getElementById("inp-dossier").value + "</strong> ?";
+    warn.innerHTML = modeAuto
+      ? "⚠️ Aucun fichier détecté automatiquement. Appuyez sur les fichiers à inclure ci-dessus."
+      : "⚠️ Aucun fichier sélectionné. Appuyez sur les fichiers à uploader.";
     liste.appendChild(warn);
   }
 
-  actions.classList.toggle("hidden", modifies.length === 0);
-  resume.textContent = modeAuto
-    ? `${modifies.length} fichier(s) signé(s) détecté(s) automatiquement`
-    : `${modifies.length} fichier(s) à uploader`;
+  actions.classList.toggle("hidden", selectionnes.length === 0);
+  resume.textContent = `${selectionnes.length} fichier(s) sélectionné(s) à uploader`;
 }
 
 async function lancerUploadTerrain() {
@@ -1014,5 +1164,149 @@ function reinitialiserUpload() {
 <!-- JSZip — création du ZIP côté navigateur -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BARRE INTERVENTION — DÉBUT / FIN
+// ══════════════════════════════════════════════════════════════════════════════
+
+const NOM_FICHIER_REF = "_DATE_REFERENCE.txt";
+
+// Formate la date courante en "dd/mm/yyyy HH:MM:SS"
+function _dateHeure() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ` +
+         `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Active les boutons DÉBUT/FIN et affiche le n° dossier
+function _activerBarreIntervention(numDossier) {
+  document.getElementById("lbl-dossier-barre").textContent = numDossier;
+  document.getElementById("btn-debut").disabled = false;
+  document.getElementById("btn-fin").disabled   = false;
+  document.getElementById("statut-intervention").textContent = "";
+  document.getElementById("statut-intervention").className  = "";
+}
+
+function _desactiverBarreIntervention() {
+  document.getElementById("lbl-dossier-barre").textContent  = "—";
+  document.getElementById("btn-debut").disabled = true;
+  document.getElementById("btn-fin").disabled   = true;
+  document.getElementById("statut-intervention").textContent = "";
+}
+
+function _setStatutBarre(msg, type) {
+  const el = document.getElementById("statut-intervention");
+  el.textContent = msg;
+  el.className   = type || "";
+}
+
+// Récupère ou crée le dossier 3-SCANS_terrain, retourne son id
+async function _obtenirDossierScans() {
+  if (dossierScanId) return dossierScanId;
+  const found = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+  dossierScanId = found || await creerDossier(DOSSIER_DESTINATION, dossierAffaireId);
+  return dossierScanId;
+}
+
+// Uploade ou met à jour _DATE_REFERENCE.txt dans 3-SCANS_terrain
+async function _uploaderFichierRef(contenu) {
+  const scanId = await _obtenirDossierScans();
+
+  // Chercher si le fichier existe déjà
+  const q = `'${scanId}' in parents and name='${NOM_FICHIER_REF}' and trashed=false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`;
+  const data = await driveGet(url);
+  const existing = data.files && data.files[0];
+
+  const blob = new Blob([contenu], { type: "text/plain;charset=utf-8" });
+
+  if (existing) {
+    // Mettre à jour le fichier existant (PATCH)
+    const r = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "text/plain"
+        },
+        body: blob
+      }
+    );
+    if (!r.ok) throw new Error("Mise à jour fichier ref échouée : " + r.status);
+  } else {
+    // Créer le fichier
+    await uploaderFichierDrive(
+      new File([blob], NOM_FICHIER_REF, { type: "text/plain" }),
+      NOM_FICHIER_REF,
+      scanId
+    );
+  }
+}
+
+// Contenu actuel du fichier ref (lu depuis Drive ou depuis la variable locale)
+let _contenuRef = "";
+
+async function _lireContenuRef() {
+  try {
+    const scanId = await _obtenirDossierScans();
+    const q = `'${scanId}' in parents and name='${NOM_FICHIER_REF}' and trashed=false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`;
+    const data = await driveGet(url);
+    const existing = data.files && data.files[0];
+    if (!existing) return "";
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`,
+      { headers: { Authorization: "Bearer " + accessToken } }
+    );
+    return r.ok ? await r.text() : "";
+  } catch { return ""; }
+}
+
+// ── Bouton DÉBUT ──────────────────────────────────────────────────────────────
+async function enregistrerDebut() {
+  const btn = document.getElementById("btn-debut");
+  btn.disabled = true;
+  _setStatutBarre("⏳ Enregistrement du début…");
+  try {
+    const dh = _dateHeure();
+    _contenuRef = `DEBUT: ${dh}
+`;
+    await _uploaderFichierRef(_contenuRef);
+    _setStatutBarre(`▶ Début : ${dh}`, "ok");
+    // Laisser FIN actif, désactiver DÉBUT pour éviter double-clic
+    document.getElementById("btn-fin").disabled = false;
+  } catch(e) {
+    btn.disabled = false;
+    _setStatutBarre("❌ Erreur upload début : " + e.message, "err");
+  }
+}
+
+// ── Bouton FIN ────────────────────────────────────────────────────────────────
+async function enregistrerFin() {
+  const btn = document.getElementById("btn-fin");
+  btn.disabled = true;
+  _setStatutBarre("⏳ Enregistrement de la fin…");
+  try {
+    const dh = _dateHeure();
+    // Lire le contenu actuel pour ajouter la fin (sans écraser le début)
+    if (!_contenuRef) {
+      _contenuRef = await _lireContenuRef();
+    }
+    // Retirer une éventuelle ligne FIN précédente
+    _contenuRef = _contenuRef.replace(/^FIN:.*\n?/m, "");
+    _contenuRef = _contenuRef.trimEnd() + `\nFIN: ${dh}\n`;
+    await _uploaderFichierRef(_contenuRef);
+    _setStatutBarre(`⏹ Fin : ${dh}`, "ok");
+    document.getElementById("btn-debut").disabled = false;
+  } catch(e) {
+    btn.disabled = false;
+    _setStatutBarre("❌ Erreur upload fin : " + e.message, "err");
+  }
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
