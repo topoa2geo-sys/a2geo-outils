@@ -1283,6 +1283,31 @@ async function uploaderFichierDrive(file, nomCible, folderId) {
   return r.json();
 }
 
+// ── Upload avec détection de doublon (par NOM, pas par date — la date d'upload
+// n'est pas fiable pour savoir si un fichier existe déjà) et confirmation d'écrasement ──
+async function uploaderAvecConfirmation(file, nomCible, folderId) {
+  const q = `'${folderId}' in parents and name='${nomCible.replace(/'/g, "\\'")}' and trashed=false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`;
+  const data = await driveGet(url);
+  const existing = data.files && data.files[0];
+
+  if (!existing) {
+    await uploaderFichierDrive(file, nomCible, folderId);
+    return "ok";
+  }
+
+  const ecraser = confirm(`Le fichier "${nomCible}" existe déjà sur le Drive.\n\nVoulez-vous l'écraser ?`);
+  if (!ecraser) return "skip";
+
+  const buf = await file.arrayBuffer();
+  const r = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+    { method: "PATCH", headers: { Authorization: "Bearer " + accessToken, "Content-Type": file.type || "application/octet-stream" }, body: buf }
+  );
+  if (!r.ok) throw new Error("Écrasement échoué : " + r.status);
+  return "ok";
+}
+
 function reinitialiserUpload() {
   const el = id => document.getElementById(id);
   el("liste-fichiers-locaux").innerHTML = "";
@@ -1554,14 +1579,14 @@ async function lancerUploadPhotos() {
     const found = await chercherId(DOSSIER_PHOTOS, dossierAffaireId);
     const photosFolderId = found || await creerDossier(DOSSIER_PHOTOS, dossierAffaireId);
 
-    let ok = 0, err = 0;
+    let ok = 0, err = 0, skip = 0;
     for (let i = 0; i < fichiersPhotos.length; i++) {
       const f = fichiersPhotos[i];
       label.textContent = `${i+1}/${fichiersPhotos.length} — ${f.name}`;
       barre.style.width = `${Math.round((i+1)/fichiersPhotos.length*100)}%`;
       try {
-        await uploaderFichierDrive(f, f.name, photosFolderId);
-        ok++;
+        const res = await uploaderAvecConfirmation(f, f.name, photosFolderId);
+        if (res === "skip") skip++; else ok++;
       } catch(e) { err++; }
     }
 
@@ -1569,6 +1594,7 @@ async function lancerUploadPhotos() {
     resultats.innerHTML = `
       <div class="info-succes">
         ✅ ${ok} photo(s) uploadée(s) dans <strong>${DOSSIER_PHOTOS}</strong>
+        ${skip ? `<br>⏭️ ${skip} ignorée(s) (déjà existante(s) sur le Drive, non écrasée(s))` : ""}
         ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
       </div>
       <div class="info-alerte" style="margin-top:8px;">
@@ -1632,14 +1658,14 @@ async function lancerUploadPdfs() {
 
   try {
     const scanId = await _obtenirDossierScans();
-    let ok = 0, err = 0;
+    let ok = 0, err = 0, skip = 0;
     for (let i = 0; i < fichiersPdfs.length; i++) {
       const f = fichiersPdfs[i];
       label.textContent = `${i+1}/${fichiersPdfs.length} — ${f.name}`;
       barre.style.width = `${Math.round((i+1)/fichiersPdfs.length*100)}%`;
       try {
-        await uploaderFichierDrive(f, f.name, scanId);
-        ok++;
+        const res = await uploaderAvecConfirmation(f, f.name, scanId);
+        if (res === "skip") skip++; else ok++;
       } catch(e) { err++; }
     }
 
@@ -1647,6 +1673,7 @@ async function lancerUploadPdfs() {
     resultats.innerHTML = `
       <div class="info-succes">
         ✅ ${ok} PDF(s) uploadé(s) dans <strong>${DOSSIER_DESTINATION}</strong>
+        ${skip ? `<br>⏭️ ${skip} ignoré(s) (déjà existant(s) sur le Drive, non écrasé(s))` : ""}
         ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
       </div>
       <div class="info-alerte" style="margin-top:8px;">
