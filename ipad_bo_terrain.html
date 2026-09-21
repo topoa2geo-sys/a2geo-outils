@@ -438,12 +438,21 @@
     </div>
 
     <!-- ── Section PDFs ── -->
-    <div class="section-titre">📄 PDFs (Adobe Scan / Aperçu)</div>
+    <div class="section-titre">📄 PDFs (Scanner de documents)</div>
+
+    <div class="bloc-action" style="background:#f0fff4;border-color:var(--vert);">
+      <h3>💡 Méthode recommandée — scanner directement dans le bon dossier</h3>
+      <p>Ouvrir l'app <strong>Fichiers</strong> → naviguer dans
+         <code>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></code> →
+         appuyer sur <strong>+</strong> → <strong>Scanner des documents</strong>.
+         Le PDF est enregistré directement au bon endroit, sans étape supplémentaire.</p>
+    </div>
 
     <div class="bloc-action">
       <h3>Uploader les PDFs → Drive <code>3-SCANS_terrain</code></h3>
       <p>Sélectionnez les PDFs créés pendant l'intervention dans
-         <code>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></code>.
+         <code>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></code>
+         (ou directement depuis Adobe Scan/Aperçu si l'app propose cet emplacement dans le sélecteur).
          Les fichiers créés entre <strong>DÉBUT</strong> et <strong>FIN</strong>
          sont pré-sélectionnés.</p>
       <label class="upload-zone" for="inp-pdfs-locaux">
@@ -453,7 +462,7 @@
         <div style="font-size:36px;margin-bottom:8px;">📄</div>
         <div style="font-weight:700;color:var(--bleu);font-size:15px;">Sélectionner les PDFs</div>
         <div style="font-size:12px;color:#888;margin-top:6px;">
-          Adobe Scan / Aperçu — dans le dossier affaire
+          Scanner Fichiers (recommandé), ou Adobe Scan / Aperçu
         </div>
       </label>
       <div id="liste-pdfs-locaux" style="margin-top:10px;"></div>
