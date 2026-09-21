@@ -1075,12 +1075,11 @@ async function onFichiersLocauxChange(input) {
 }
 
 // Parse "dd/mm/yyyy HH:MM:SS" → timestamp ms
+// Parse une date ISO "yyyy-MM-ddTHH:MM:SS" → timestamp ms
 function _parseDate(str) {
   try {
-    const [date, time] = str.split(" ");
-    const [d, m, y]   = date.split("/");
-    const [h, mn, s]  = time.split(":");
-    return new Date(y, m-1, d, h, mn, s).getTime();
+    const t = new Date(str).getTime();
+    return isNaN(t) ? 0 : t;
   } catch { return 0; }
 }
 
@@ -1305,11 +1304,12 @@ function reinitialiserUpload() {
 
 const NOM_FICHIER_REF = "_DATE_REFERENCE.txt";
 
-// Formate la date courante en "dd/mm/yyyy HH:MM:SS"
+// Formate la date courante en ISO 8601 "yyyy-MM-ddTHH:MM:SS" — format non ambigu,
+// reconnu de façon fiable comme une vraie date par Raccourcis iOS (contrairement à jj/mm/aaaa).
 function _dateHeure() {
   const d = new Date();
   const pad = n => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ` +
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T` +
          `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
