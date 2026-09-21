@@ -347,7 +347,7 @@
     <div class="bloc-action">
       <h3>Étape 2 — Uploader les photos → Drive <code>4-photos</code></h3>
       <p>Sélectionnez les photos copiées par le Raccourci dans le dossier affaire.</p>
-      <label class="upload-zone" for="inp-photos-locaux">
+      <label class="upload-zone" for="inp-photos-locaux" onclick="event.preventDefault(); document.getElementById('inp-photos-locaux').click();">
         <input type="file" id="inp-photos-locaux" multiple
                accept=".jpg,.jpeg,.png,.heic,.JPG,.JPEG,.PNG,.HEIC"
                onchange="onPhotosLocauxChange(this)">
@@ -391,7 +391,7 @@
          (ou directement depuis Adobe Scan/Aperçu si l'app propose cet emplacement dans le sélecteur).
          Les fichiers créés entre <strong>DÉBUT</strong> et <strong>FIN</strong>
          sont pré-sélectionnés.</p>
-      <label class="upload-zone" for="inp-pdfs-locaux">
+      <label class="upload-zone" for="inp-pdfs-locaux" onclick="event.preventDefault(); document.getElementById('inp-pdfs-locaux').click();">
         <input type="file" id="inp-pdfs-locaux" multiple
                accept=".pdf,.PDF"
                onchange="onPdfsLocauxChange(this)">
