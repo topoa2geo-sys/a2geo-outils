@@ -959,6 +959,29 @@ async function uploaderFichierDrive(file, nomCible, folderId) {
 
 // ── Upload avec détection de doublon (par NOM, pas par date — la date d'upload
 // n'est pas fiable pour savoir si un fichier existe déjà) et confirmation d'écrasement ──
+// Fenêtre de confirmation "maison" (au lieu de confirm() natif) : évite la
+// protection anti-spam de Safari iOS qui casse les confirm() répétés en boucle.
+function confirmerEcrasement(nomFichier) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;";
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:14px;padding:20px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);">
+        <div style="font-weight:700;font-size:16px;color:var(--text);margin-bottom:10px;">⚠️ Fichier déjà existant</div>
+        <div style="font-size:14px;color:#555;line-height:1.5;margin-bottom:18px;word-break:break-all;">
+          Le fichier <strong>"${nomFichier}"</strong> existe déjà sur le Drive.<br>Voulez-vous l'écraser ?
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="btn-conf-non" class="btn btn-secondary" style="flex:1;justify-content:center;">Ignorer</button>
+          <button id="btn-conf-oui" class="btn btn-warning" style="flex:1;justify-content:center;">Écraser</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#btn-conf-oui").onclick = () => { overlay.remove(); resolve(true); };
+    overlay.querySelector("#btn-conf-non").onclick = () => { overlay.remove(); resolve(false); };
+  });
+}
+
 async function uploaderAvecConfirmation(file, nomCible, folderId) {
   const q = `'${folderId}' in parents and name='${nomCible.replace(/'/g, "\\'")}' and trashed=false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`;
@@ -970,7 +993,7 @@ async function uploaderAvecConfirmation(file, nomCible, folderId) {
     return "ok";
   }
 
-  const ecraser = confirm(`Le fichier "${nomCible}" existe déjà sur le Drive.\n\nVoulez-vous l'écraser ?`);
+  const ecraser = await confirmerEcrasement(nomCible);
   if (!ecraser) return "skip";
 
   const buf = await file.arrayBuffer();
@@ -1255,10 +1278,13 @@ async function lancerUploadPhotos() {
         ${skip ? `<br>⏭️ ${skip} ignorée(s) (déjà existante(s) sur le Drive, non écrasée(s))` : ""}
         ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
       </div>
-      <div class="info-alerte" style="margin-top:8px;">
-        📱 <strong>Suppression des photos :</strong> iOS ne permet pas la suppression automatique.
-        Allez dans l'app <strong>Photos</strong> → sélectionnez les photos du terrain → Supprimer.
-        Vous pouvez les identifier par la date : entre <strong>${_plageTexte()}</strong>.
+      <div style="margin-top:10px;padding:12px 14px;border-radius:8px;background:#FDE8E8;border:1px solid #f5c6c6;display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:20px;line-height:1.2;">🗑️</span>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#7B1B1B;margin-bottom:4px;">Upload terminé — pensez à supprimer les photos de l'iPad</div>
+          <div style="font-size:13px;color:#555;">iOS ne permet pas la suppression automatique. Ouvrez l'app <strong>Photos</strong>, sélectionnez les photos du terrain (entre <strong>${_plageTexte()}</strong>), puis Supprimer.</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">💡 Pensez à vider la corbeille de l'iPad (Photos › Récemment supprimés, et Fichiers › Récemment supprimés) régulièrement, une fois par semaine, pour libérer de l'espace.</div>
+        </div>
       </div>`;
     resultats.classList.remove("hidden");
 
@@ -1336,10 +1362,13 @@ async function lancerUploadPdfs() {
         ${skip ? `<br>⏭️ ${skip} ignoré(s) (déjà existant(s) sur le Drive, non écrasé(s))` : ""}
         ${err ? `<br>⚠️ ${err} erreur(s)` : ""}
       </div>
-      <div class="info-alerte" style="margin-top:8px;">
-        🗑️ <strong>Suppression des PDFs :</strong> allez dans l'app <strong>Fichiers</strong>
-        → <em>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></em>
-        → appui long sur les PDFs → Supprimer.
+      <div style="margin-top:10px;padding:12px 14px;border-radius:8px;background:#FDE8E8;border:1px solid #f5c6c6;display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:20px;line-height:1.2;">🗑️</span>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#7B1B1B;margin-bottom:4px;">Upload terminé — pensez à supprimer les PDF de l'iPad</div>
+          <div style="font-size:13px;color:#555;">Ouvrez l'app <strong>Fichiers</strong> → <em>Sur mon iPad › A2GEO › <span class="num-dossier-lbl"></span></em> → appui long sur les PDF → Supprimer.</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">💡 Pensez à vider la corbeille de l'iPad (Fichiers › Récemment supprimés) et celle de Google Drive régulièrement, une fois par semaine.</div>
+        </div>
       </div>`;
     resultats.classList.remove("hidden");
 
