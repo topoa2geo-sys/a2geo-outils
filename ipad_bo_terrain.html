@@ -139,7 +139,9 @@
                  text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
                  background: var(--gris); margin-bottom: 4px; }
   .upload-zone:active { border-color: var(--bleu2); background: #eef3ff; }
-  .upload-zone input[type=file] { display: none; }
+  .upload-zone { position: relative; }
+  .upload-zone input[type=file] { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                                  opacity: 0; cursor: pointer; margin: 0; }
   .zip-info-box { border-radius: 10px; padding: 11px 14px;
                   font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
 
@@ -360,7 +362,7 @@
     <div class="bloc-action">
       <h3>Étape 2 — Uploader les photos → Drive <code>4-photos</code></h3>
       <p>Sélectionnez les photos copiées par le Raccourci dans le dossier affaire.</p>
-      <label class="upload-zone" for="inp-photos-locaux" onclick="event.preventDefault(); document.getElementById('inp-photos-locaux').click();">
+      <label class="upload-zone" for="inp-photos-locaux">
         <input type="file" id="inp-photos-locaux" multiple
                accept=".jpg,.jpeg,.png,.heic,.JPG,.JPEG,.PNG,.HEIC"
                onchange="onPhotosLocauxChange(this)">
@@ -404,7 +406,7 @@
          (ou directement depuis Adobe Scan/Aperçu si l'app propose cet emplacement dans le sélecteur).
          Les fichiers créés entre <strong>DÉBUT</strong> et <strong>FIN</strong>
          sont pré-sélectionnés.</p>
-      <label class="upload-zone" for="inp-pdfs-locaux" onclick="event.preventDefault(); document.getElementById('inp-pdfs-locaux').click();">
+      <label class="upload-zone" for="inp-pdfs-locaux">
         <input type="file" id="inp-pdfs-locaux" multiple
                accept=".pdf,.PDF"
                onchange="onPdfsLocauxChange(this)">
@@ -919,9 +921,15 @@ async function chargerFichiers() {
       errEl.textContent = `⚠️ Dossier "${num}" introuvable sur Drive.`; return;
     }
 
+    // Nouvelle affaire chargée : ne pas garder l'état de la précédente
+    dossierScanId = null;
+    _contenuRef = "";
+
     fichiersTerrain = await chargerFichiersTerrain(dossierAffaireId);
     // Activer la barre DÉBUT/FIN
     _activerBarreIntervention(num);
+    // Retrouver la plage DÉBUT/FIN déjà enregistrée (iPad et/ou Drive)
+    await _restaurerPlage(num);
 
     // Afficher onglets + contenu
     document.getElementById("zone-tabs").classList.remove("hidden");
@@ -1155,6 +1163,53 @@ async function _lireContenuRef() {
   } catch { return ""; }
 }
 
+// ── Plage DÉBUT/FIN : copie locale (iPad) en plus du Drive ─────────────────────
+// Survit à un rechargement de la page et reste disponible sans connexion.
+const CLE_REF_LOCALE = "a2geo_ref_";
+function _numDossierCourant() {
+  return document.getElementById("inp-dossier").value.trim().toUpperCase();
+}
+function _sauverRefLocale(contenu) {
+  const num = _numDossierCourant();
+  if (!num) return;
+  try { localStorage.setItem(CLE_REF_LOCALE + num, contenu); } catch(e) {}
+}
+function _lireRefLocale(num) {
+  try { return localStorage.getItem(CLE_REF_LOCALE + num) || ""; } catch(e) { return ""; }
+}
+function _extrairePlage(contenu) {
+  let debut = "", fin = "";
+  for (const l of (contenu || "").split("\n")) {
+    if (l.startsWith("DEBUT:")) debut = l.replace("DEBUT:", "").trim();
+    if (l.startsWith("FIN:"))   fin   = l.replace("FIN:", "").trim();
+  }
+  return { debut, fin };
+}
+// Entre la copie iPad et celle du Drive, garde la plus récente (début le plus tardif ; à égalité, celle qui a une fin)
+function _choisirRef(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const pa = _extrairePlage(a), pb = _extrairePlage(b);
+  const ta = _parseDate(pa.debut), tb = _parseDate(pb.debut);
+  if (ta !== tb) return ta > tb ? a : b;
+  return (pb.fin && !pa.fin) ? b : a;
+}
+async function _restaurerPlage(num) {
+  const locale = _lireRefLocale(num);
+  let drive = "";
+  try {
+    const scanId = await chercherId(DOSSIER_DESTINATION, dossierAffaireId);
+    if (scanId) { dossierScanId = scanId; drive = await _lireContenuRef(); }
+  } catch(e) {}
+  _contenuRef = _choisirRef(locale, drive);
+  if (!_contenuRef) return;
+  _sauverRefLocale(_contenuRef);
+  // Plage notée hors connexion (iPad plus à jour que le Drive) : la renvoyer au Drive maintenant
+  if (_contenuRef !== drive) { try { await _uploaderFichierRef(_contenuRef); } catch(e) {} }
+  const { debut, fin } = _extrairePlage(_contenuRef);
+  _setStatutBarre(`📌 Plage retrouvée : ${debut.replace("T", " ")} → ${fin ? fin.replace("T", " ") : "en cours"}`, "ok");
+}
+
 // ── Bouton DÉBUT ──────────────────────────────────────────────────────────────
 async function enregistrerDebut() {
   const btn = document.getElementById("btn-debut");
@@ -1164,13 +1219,14 @@ async function enregistrerDebut() {
     const dh = _dateHeure();
     _contenuRef = `DEBUT: ${dh}
 `;
+    _sauverRefLocale(_contenuRef);
     await _uploaderFichierRef(_contenuRef);
     _setStatutBarre(`▶ Début : ${dh}`, "ok");
     // Laisser FIN actif, désactiver DÉBUT pour éviter double-clic
     document.getElementById("btn-fin").disabled = false;
   } catch(e) {
     btn.disabled = false;
-    _setStatutBarre("❌ Erreur upload début : " + e.message, "err");
+    _setStatutBarre("⚠️ Début noté sur l'iPad mais non envoyé au Drive : " + e.message, "err");
   }
 }
 
@@ -1183,17 +1239,18 @@ async function enregistrerFin() {
     const dh = _dateHeure();
     // Lire le contenu actuel pour ajouter la fin (sans écraser le début)
     if (!_contenuRef) {
-      _contenuRef = await _lireContenuRef();
+      _contenuRef = _choisirRef(_lireRefLocale(_numDossierCourant()), await _lireContenuRef());
     }
     // Retirer une éventuelle ligne FIN précédente
     _contenuRef = _contenuRef.replace(/^FIN:.*\n?/m, "");
     _contenuRef = _contenuRef.trimEnd() + `\nFIN: ${dh}\n`;
+    _sauverRefLocale(_contenuRef);
     await _uploaderFichierRef(_contenuRef);
     _setStatutBarre(`⏹ Fin : ${dh}`, "ok");
     document.getElementById("btn-debut").disabled = false;
   } catch(e) {
     btn.disabled = false;
-    _setStatutBarre("❌ Erreur upload fin : " + e.message, "err");
+    _setStatutBarre("⚠️ Fin notée sur l'iPad mais non envoyée au Drive : " + e.message, "err");
   }
 }
 
@@ -1223,13 +1280,13 @@ function lancerRaccourciPhotos() {
     }
   }
   if (!debut) {
-    alert("⚠️ Appuyez d'abord sur DÉBUT avant d'aller sur le terrain pour définir la plage de dates.");
+    alert("⚠️ Aucun DÉBUT enregistré pour cette affaire. Appuyez sur DÉBUT pour définir la plage de dates.");
     return;
   }
 
   // Passer début, fin et numéro dossier au Raccourci via l'URL shortcut
   // Le Raccourci reçoit un texte "DEBUT|FIN|DOSSIER"
-  const param = encodeURIComponent(`${debut}|${fin || debut}|${num}`);
+  const param = encodeURIComponent(`${debut}|${fin || _dateHeure()}|${num}`);
   window.location.href = `shortcuts://run-shortcut?name=A2GEO%20Photos%20terrain&input=text&text=${param}`;
 
   // Message après retour
