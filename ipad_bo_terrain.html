@@ -126,7 +126,7 @@
                         display: flex; align-items: center; gap: 10px; }
   .fichier-local-item.modifie    { border-color: var(--vert);  background: #f0fff4; }
   .fichier-local-item.non-modifie { opacity: .45; }
-  .upload-zone { border: 2px dashed var(--gris2); border-radius: 12px; padding: 20px 16px;
+  .upload-zone { display: block; border: 2px dashed var(--gris2); border-radius: 12px; padding: 20px 16px;
                  text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
                  background: var(--gris); margin-bottom: 4px; }
   .upload-zone:active { border-color: var(--bleu2); background: #eef3ff; }
@@ -358,8 +358,8 @@
         </div>
       </label>
       <div id="liste-photos-locaux" style="margin-top:10px;"></div>
-      <div id="upload-photos-actions" class="hidden" style="margin-top:10px;">
-        <button class="btn btn-success" id="btn-upload-photos" onclick="lancerUploadPhotos()"
+      <div id="upload-photos-actions" style="margin-top:10px;">
+        <button class="btn btn-success" id="btn-upload-photos" onclick="lancerUploadPhotos()" disabled
                 style="width:100%;justify-content:center;">
           ☁️&nbsp; Uploader photos → Drive (4-photos)
         </button>
@@ -402,8 +402,8 @@
         </div>
       </label>
       <div id="liste-pdfs-locaux" style="margin-top:10px;"></div>
-      <div id="upload-pdfs-actions" class="hidden" style="margin-top:10px;">
-        <button class="btn btn-success" id="btn-upload-pdfs" onclick="lancerUploadPdfs()"
+      <div id="upload-pdfs-actions" style="margin-top:10px;">
+        <button class="btn btn-success" id="btn-upload-pdfs" onclick="lancerUploadPdfs()" disabled
                 style="width:100%;justify-content:center;">
           ☁️&nbsp; Uploader PDFs → Drive (3-SCANS_terrain)
         </button>
@@ -1437,7 +1437,7 @@ function _afficherListeFichiers(listeId, selectionnes, autres, actionsId, type) 
         item.style.background = "#f0fff4";
         render(true);
       }
-      actions.classList.toggle("hidden", refTab.length === 0);
+      actions.querySelector("button").disabled = refTab.length === 0;
     });
     return item;
   }
@@ -1451,7 +1451,7 @@ function _afficherListeFichiers(listeId, selectionnes, autres, actionsId, type) 
     autres.forEach(f => liste.appendChild(creerItem(f, false)));
   }
 
-  actions.classList.toggle("hidden", selectionnes.length === 0);
+  actions.querySelector("button").disabled = selectionnes.length === 0;
 }
 
 // Formate la plage de dates pour les messages d'alerte
