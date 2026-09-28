@@ -43,6 +43,15 @@
                      letter-spacing: 1px; outline: none; }
   input[type=text]:focus { border-color: var(--bleu2); }
 
+  /* ── Sélecteur dossier : année + 3 chiffres ── */
+  .sel-annee, .inp-num { font-size: 18px; font-weight: 700; color: var(--bleu2);
+                         border: 2px solid var(--gris2); border-radius: 8px;
+                         padding: 12px 14px; outline: none; background: white; }
+  .sel-annee { min-width: 110px; }
+  .inp-num { width: 110px; text-align: center; letter-spacing: 3px; -webkit-appearance: none; }
+  .sel-annee:focus, .inp-num:focus { border-color: var(--bleu2); }
+  .dossier-sep { font-size: 22px; font-weight: 800; color: var(--bleu2); }
+
   /* ── Boutons ── */
   .btn { display: inline-flex; align-items: center; gap: 8px;
          border: none; border-radius: 10px; padding: 14px 20px;
@@ -235,15 +244,19 @@
   <div class="card">
     <h2>📁 Dossier affaire</h2>
     <div class="dossier-row">
-      <input type="text" id="inp-dossier" placeholder="2026_099"
-             maxlength="8" autocomplete="off" autocorrect="off"
-             autocapitalize="characters" spellcheck="false"
-             oninput="this.value=this.value.replace(/[^0-9_]/g,'')">
+      <select id="sel-annee" class="sel-annee" onchange="majDossier()" aria-label="Année"></select>
+      <span class="dossier-sep">_</span>
+      <input type="tel" id="inp-num" class="inp-num" placeholder="099"
+             inputmode="numeric" pattern="[0-9]*" maxlength="3"
+             autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Numéro (3 chiffres)"
+             oninput="this.value=this.value.replace(/\D/g,'').slice(0,3); majDossier();"
+             onkeydown="if(event.key==='Enter'){chargerFichiers();}">
+      <input type="hidden" id="inp-dossier">
       <button class="btn btn-primary" onclick="chargerFichiers()" id="btn-charger">
         🔍&nbsp;Charger
       </button>
     </div>
-    <p class="info-txt">Format : AAAA_NNN &nbsp;(ex : 2026_099)</p>
+    <p class="info-txt">Choisir l'année (par défaut l'année en cours), puis taper les 3 chiffres du numéro &nbsp;(ex : 2026 _ 099)</p>
     <p id="lbl-dossier-err" style="color:var(--rouge);font-size:13px;margin-top:6px;"></p>
   </div>
 
@@ -484,10 +497,33 @@ function _afficherEcranPrincipal() {
   document.getElementById("barre-intervention").classList.add("visible");
   document.getElementById("ecran-auth").classList.add("hidden");
   document.getElementById("ecran-principal").classList.remove("hidden");
-  document.getElementById("inp-dossier").focus();
+  document.getElementById("inp-num").focus();
 }
+
+// ── Sélecteur de dossier : année (année en cours → 2011, création d'A2GEO) + 3 chiffres ──
+const ANNEE_CREATION_A2GEO = 2011;
+function initSelecteurDossier() {
+  const sel = document.getElementById("sel-annee");
+  const courante = new Date().getFullYear();
+  sel.innerHTML = "";
+  for (let a = courante; a >= ANNEE_CREATION_A2GEO; a--) {
+    const o = document.createElement("option");
+    o.value = o.textContent = String(a);
+    sel.appendChild(o);
+  }
+  sel.value = String(courante);
+  majDossier();
+}
+// Recompose la valeur AAAA_NNN lue par tout le reste de l'appli (champ caché inp-dossier)
+function majDossier() {
+  const annee = document.getElementById("sel-annee").value;
+  const num   = document.getElementById("inp-num").value;
+  document.getElementById("inp-dossier").value = num ? annee + "_" + num : "";
+}
+
 // Au démarrage : si token encore valide, passer directement à l'écran principal
 window.addEventListener("load", () => {
+  initSelecteurDossier();
   // Date MAJ = date de modification du fichier sur le serveur GitHub Pages
   const d = new Date(document.lastModified);
   const pad = n => String(n).padStart(2, "0");
@@ -911,7 +947,8 @@ function ajouterResultat(container, cls, icon, nom, detail) {
 
 function reinitialiser() {
   _desactiverBarreIntervention();
-  document.getElementById("inp-dossier").value = "";
+  document.getElementById("inp-num").value = "";
+  majDossier();
   document.getElementById("zone-tabs").classList.add("hidden");
   document.getElementById("carte-terrain").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
@@ -920,7 +957,7 @@ function reinitialiser() {
   dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
   _resetBoutonZip();
-  document.getElementById("inp-dossier").focus();
+  document.getElementById("inp-num").focus();
 }
 
 function _resetBoutonZip() {
