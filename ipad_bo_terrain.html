@@ -124,10 +124,6 @@
                                 word-break: break-all; }
   .section-terrain { font-size: 11px; font-weight: 700; text-transform: uppercase;
                      letter-spacing: .5px; color: #888; margin: 10px 0 4px; }
-  .terrain-cb { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--gris2);
-                background: white; display: flex; align-items: center; justify-content: center;
-                cursor: pointer; flex-shrink: 0; font-size: 14px; }
-  .terrain-cb.coche { background: var(--bleu2); border-color: var(--bleu2); color: white; }
 
   /* ── Upload terrain local ── */
   .fichier-local-item { border: 1.5px solid var(--gris2); border-radius: 10px;
@@ -272,25 +268,17 @@
     </button>
   </div>
 
-  <!-- ══ ONGLET TERRAIN : ouvrir les docs dans Adobe ══ -->
+  <!-- ══ ONGLET PRÉPARER TERRAIN : télécharger les documents sur l'iPad ══ -->
   <div class="card hidden" id="carte-terrain" style="border-radius:0 0 var(--r) var(--r);margin-top:0;">
     <h2>🏕️ Documents à préparer pour le terrain</h2>
 
-    <!-- Option A : avec connexion → Adobe direct -->
+    <!-- Liste (lecture seule) des documents de 2-prepa_BO + alerte si un obligatoire manque -->
     <div style="background:#eef3ff;border-radius:10px;padding:14px;margin-bottom:12px;">
       <div style="font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:6px;">
-        📶 Avec connexion — Ouvrir dans Adobe Reader
+        📄 Documents du dossier 2-prepa_BO
       </div>
-      <p class="info-txt" style="margin-bottom:10px;">
-        Les fichiers <strong>obligatoires</strong> sont pré-sélectionnés.
-        Cochez les <strong>pouvoirs DMPC</strong> si nécessaire, puis appuyez sur le bouton.
-      </p>
+      <p class="info-txt" style="margin-bottom:10px;">Tous ces documents seront téléchargés.</p>
       <div id="liste-terrain"></div>
-      <button class="btn btn-primary" onclick="ouvrirSelectionAdobe()" id="btn-ouvrir-selection"
-              style="width:100%;justify-content:center;margin-top:10px;" disabled>
-        📄&nbsp; Ouvrir la sélection dans Adobe
-      </button>
-      <p id="adobe-seq-info" class="info-txt hidden" style="margin-top:8px;text-align:center;color:var(--bleu2);"></p>
     </div>
 
     <!-- Avertissement dossier iPad -->
@@ -298,36 +286,33 @@
       <div style="font-weight:700;color:#7a3e00;font-size:14px;margin-bottom:4px;">⚠️ Avant de télécharger</div>
       <div style="font-size:13px;color:#7a3e00;line-height:1.6;">
         Le dossier <strong><span class="num-dossier-lbl" style="color:var(--orange);"></span></strong>
-        doit être créé <strong>manuellement au préalable</strong> dans
-        <em>Fichiers › Sur mon iPad › A2GEO</em>.
+        doit exister dans <em>Fichiers › Sur mon iPad › A2GEO</em>
+        (vous pouvez aussi le créer depuis la fenêtre de choix du dossier, bouton « Nouveau dossier »).
       </div>
     </div>
 
-    <!-- Option B : sans connexion → ZIP -->
+    <!-- Téléchargement direct dans le dossier de l'affaire -->
     <div style="background:#f0fff4;border-radius:10px;padding:14px;">
       <div style="font-weight:700;color:var(--vert);font-size:14px;margin-bottom:6px;">
-        ✈️ Sans connexion — Télécharger le ZIP avant de partir
+        📥 Télécharger les documents avant de partir
       </div>
       <div class="info-txt" style="margin-bottom:10px;line-height:1.8;">
-        Télécharge tous les fichiers de <strong>2-prepa_BO</strong> en un ZIP.<br>
-        <strong>Sur iPad :</strong>
-        <ol style="margin:6px 0 0 18px;font-size:12px;">
-          <li>Créer d'abord le dossier <strong><span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> dans <em>Fichiers › Sur mon iPad</em></li>
-          <li>Appuyer sur <strong>📦 Télécharger tout en ZIP</strong></li>
-          <li>La feuille de partage iOS s'ouvre → <strong>Enregistrer dans Fichiers</strong></li>
-          <li>Naviguer vers le dossier <strong><span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> et confirmer</li>
-          <li>Appuyer sur le ZIP pour le dézipper sur place</li>
+        <ol style="margin:0 0 0 18px;font-size:12px;">
+          <li>Appuyer sur le bouton vert ci-dessous</li>
+          <li>Dans la feuille de partage iOS : <strong>Enregistrer dans Fichiers</strong></li>
+          <li>Choisir <strong>Sur mon iPad › A2GEO › <span class="num-dossier-lbl" style="color:var(--bleu2);"></span></strong> puis <strong>Enregistrer</strong></li>
         </ol>
+        <div style="margin-top:6px;">Les documents arrivent directement dans le dossier, un par un : rien à dézipper.</div>
       </div>
-      <button class="btn btn-success" onclick="telechargerZip()" id="btn-zip"
+      <button class="btn btn-success" onclick="telechargerDocuments()" id="btn-telecharger"
               style="width:100%;justify-content:center;">
-        📦&nbsp; Télécharger tout en ZIP
+        📥&nbsp; Télécharger les documents
       </button>
-      <div id="zip-progress" class="hidden" style="margin-top:12px;">
+      <div id="dl-progress" class="hidden" style="margin-top:12px;">
         <div style="background:var(--gris2);border-radius:8px;height:10px;overflow:hidden;">
-          <div id="zip-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
+          <div id="dl-barre" style="background:var(--vert);height:100%;width:0%;transition:width .3s;"></div>
         </div>
-        <p id="zip-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+        <p id="dl-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
       </div>
     </div>
   </div>
@@ -649,20 +634,16 @@ async function chargerFichiersTerrain(parentId) {
   return data.files; // tous types de fichiers (PDF, JPG, etc.)
 }
 
-let selectionnesTerrain = new Set();
-
 function afficherFichiersTerrain(fichiers) {
   const liste = document.getElementById("liste-terrain");
   liste.innerHTML = "";
-  selectionnesTerrain.clear();
 
-  // Mettre le numéro de dossier dans le label ZIP
+  // Mettre le numéro de dossier dans les libellés
   const num = document.getElementById("inp-dossier").value.trim().toUpperCase();
   document.querySelectorAll(".num-dossier-lbl").forEach(el => el.textContent = num);
 
   if (!fichiers.length) {
     liste.innerHTML = '<p style="color:#888;font-size:14px;">Aucun fichier trouvé dans 2-prepa_BO.</p>';
-    document.getElementById("btn-ouvrir-selection").disabled = true;
     return;
   }
 
@@ -674,7 +655,7 @@ function afficherFichiersTerrain(fichiers) {
   const dmpc   = fichiers.filter(f => classerFichier(f.name).type === "dmpc");
   const autres = fichiers.filter(f => classerFichier(f.name).type === "autre");
 
-  function ajouterSection(titre, groupe, defaultCoche, estObligatoire) {
+  function ajouterSection(titre, groupe, estObligatoire) {
     if (!groupe.length) return;
     const sep = document.createElement("div");
     sep.className = "section-terrain";
@@ -684,39 +665,15 @@ function afficherFichiersTerrain(fichiers) {
     groupe.forEach(f => {
       const info   = classerFichier(f.name);
       const taille = f.size ? Math.round(f.size / 1024) + " Ko" : "";
-      if (defaultCoche) selectionnesTerrain.add(f.id);
-
       const item = document.createElement("div");
       item.className = "terrain-item" + (estObligatoire ? " obligatoire" : "");
       item.id = `terrain-item-${f.id}`;
-
-      if (estObligatoire) {
-        // Pas de checkbox — toujours sélectionné
-        item.innerHTML = `
-          <div class="terrain-cb coche" title="Obligatoire">✓</div>
-          <div class="nom-terrain">
-            <div>${f.name}</div>
-            <div style="font-size:11px;color:#aaa;">${taille}</div>
-          </div>
-          <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
-          <button class="btn btn-primary" id="btn-adobe-${f.id}"
-                  onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
-                  style="padding:9px 12px;font-size:13px;flex-shrink:0;">📄</button>`;
-      } else {
-        item.innerHTML = `
-          <div class="terrain-cb ${defaultCoche ? "coche" : ""}" id="cb-${f.id}"
-               onclick="toggleTerrain('${f.id}')">
-            ${defaultCoche ? "✓" : ""}
-          </div>
-          <div class="nom-terrain">
-            <div>${f.name}</div>
-            <div style="font-size:11px;color:#aaa;">${taille}</div>
-          </div>
-          <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>
-          <button class="btn btn-primary" id="btn-adobe-${f.id}"
-                  onclick="ouvrirDansAdobe('${f.id}','${f.name.replace(/'/g,"\\'")}')"
-                  style="padding:9px 12px;font-size:13px;flex-shrink:0;">📄</button>`;
-      }
+      item.innerHTML = `
+        <div class="nom-terrain">
+          <div>${f.name}</div>
+          <div style="font-size:11px;color:#aaa;">${taille}</div>
+        </div>
+        <span class="type-badge ${info.badge}" style="flex-shrink:0;">${info.label}</span>`;
       liste.appendChild(item);
     });
   }
@@ -739,166 +696,113 @@ function afficherFichiersTerrain(fichiers) {
     liste.insertBefore(alerte, liste.firstChild);
   }
 
-  ajouterSection("✅ Obligatoires", obligs, true,  true);
-  ajouterSection("📋 Pouvoirs DMPC", dmpc,  true,  false);
-  ajouterSection("📎 Autres",        autres, false, false);
-
-  document.getElementById("btn-ouvrir-selection").disabled = selectionnesTerrain.size === 0;
+  ajouterSection("✅ Obligatoires", obligs, true);
+  ajouterSection("📋 Pouvoirs DMPC", dmpc,  false);
+  ajouterSection("📎 Autres",        autres, false);
 }
 
-function toggleTerrain(id) {
-  const cb = document.getElementById(`cb-${id}`);
-  if (selectionnesTerrain.has(id)) {
-    selectionnesTerrain.delete(id);
-    cb.classList.remove("coche");
-    cb.textContent = "";
-  } else {
-    selectionnesTerrain.add(id);
-    cb.classList.add("coche");
-    cb.textContent = "✓";
-  }
-  document.getElementById("btn-ouvrir-selection").disabled = selectionnesTerrain.size === 0;
+// ── Téléchargement direct des documents vers l'app Fichiers ──────────────────
+// Les fichiers sont envoyés tels quels (pas de ZIP) : ils arrivent directement dans le
+// dossier choisi dans la feuille de partage, sans rien à dézipper ni à déplacer.
+let fichiersPrets = [];   // fichiers déjà récupérés du Drive, gardés en mémoire pour un 2ᵉ appui
+
+const MIME_PAR_EXT = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
+                       png: "image/png", heic: "image/heic", txt: "text/plain" };
+function _mimeFichier(nom, typeRecu) {
+  if (typeRecu && typeRecu !== "application/octet-stream") return typeRecu;
+  const ext = (nom.split(".").pop() || "").toLowerCase();
+  return MIME_PAR_EXT[ext] || "application/octet-stream";
 }
 
-// Ouvre les fichiers sélectionnés un par un dans Adobe (séquentiel avec prompt entre chaque)
-async function ouvrirSelectionAdobe() {
-  const btn = document.getElementById("btn-ouvrir-selection");
-  const info = document.getElementById("adobe-seq-info");
-  const selectionListe = fichiersTerrain.filter(f => selectionnesTerrain.has(f.id));
-  if (!selectionListe.length) return;
-
-  btn.disabled = true;
-  info.classList.remove("hidden");
-  let idx = 0;
-
-  async function ouvrirSuivant() {
-    if (idx >= selectionListe.length) {
-      info.textContent = `✅ ${selectionListe.length} fichier(s) ouverts dans Adobe`;
-      btn.disabled = false;
-      return;
-    }
-    const f = selectionListe[idx];
-    info.textContent = `Ouverture ${idx + 1}/${selectionListe.length} — ${f.name}`;
-    await ouvrirDansAdobe(f.id, f.name);
-    idx++;
-    // Pause pour laisser iOS traiter l'ouverture
-    setTimeout(ouvrirSuivant, 1500);
-  }
-  ouvrirSuivant();
-}
-
-async function ouvrirDansAdobe(fileId, fileName) {
-  const btn = document.getElementById(`btn-adobe-${fileId}`);
-  const item = document.getElementById(`terrain-item-${fileId}`);
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(255,255,255,.3);border-top-color:white;"></span>';
+// "ok" | "annule" | "geste" (appui trop ancien pour iOS) | "indisponible" (partage multi-fichiers refusé)
+async function _partagerFichiers(files) {
+  if (!navigator.canShare || !navigator.canShare({ files })) return "indisponible";
   try {
-    const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      { headers: { Authorization: "Bearer " + accessToken } }
-    );
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = fileName;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 15000);
-    btn.innerHTML = "✅ Ouvert";
-    btn.style.background = "var(--vert)";
-    if (item) item.classList.add("ouvert");
-  } catch(e) {
-    btn.disabled = false; btn.innerHTML = orig;
-    alert("Erreur : " + e.message);
+    await navigator.share({ files, title: "Documents terrain" });
+    return "ok";
+  } catch (e) {
+    if (e.name === "AbortError") return "annule";
+    if (e.name === "NotAllowedError") return "geste";
+    return "indisponible";
   }
 }
 
-async function telechargerZip() {
+// Secours : un seul fichier ZIP (partagé si possible, sinon téléchargé dans « Téléchargements »)
+async function _envoyerEnZip(files, num) {
+  const zip = new JSZip();
+  files.forEach(f => zip.file(f.name, f));
+  const contenu = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  const nomZip = `terrain_${num}.zip`;
+  const zipFile = new File([contenu], nomZip, { type: "application/zip" });
+  if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
+    try { await navigator.share({ files: [zipFile], title: nomZip }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  const url = URL.createObjectURL(contenu);
+  const a = document.createElement("a");
+  a.href = url; a.download = nomZip;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+async function telechargerDocuments() {
   if (!fichiersTerrain.length) return;
-  const btn       = document.getElementById("btn-zip");
-  const progZone  = document.getElementById("zip-progress");
-  const barre     = document.getElementById("zip-barre");
-  const label     = document.getElementById("zip-label");
-  const num       = document.getElementById("inp-dossier").value.trim().toUpperCase();
+  const btn      = document.getElementById("btn-telecharger");
+  const progZone = document.getElementById("dl-progress");
+  const barre    = document.getElementById("dl-barre");
+  const label    = document.getElementById("dl-label");
+  const num      = document.getElementById("inp-dossier").value.trim().toUpperCase();
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>&nbsp;Préparation…';
   progZone.classList.remove("hidden");
 
   try {
-    const zip = new JSZip();
-    const total = fichiersTerrain.length;
-
-    for (let i = 0; i < total; i++) {
-      const f = fichiersTerrain[i];
-      label.textContent = `Téléchargement ${i + 1}/${total} — ${f.name}`;
-      barre.style.width = Math.round((i / total) * 90) + "%";
-
-      const r = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`,
-        { headers: { Authorization: "Bearer " + accessToken } }
-      );
-      if (!r.ok) throw new Error(`Erreur ${r.status} pour ${f.name}`);
-      const blob = await r.blob();
-      zip.file(f.name, blob);
-
-      // Marquer le fichier comme téléchargé dans la liste
-      const item = document.getElementById(`terrain-item-${f.id}`);
-      if (item) item.classList.add("ouvert");
-      const btnF = document.getElementById(`btn-adobe-${f.id}`);
-      if (btnF) { btnF.innerHTML = "✅"; btnF.style.background = "var(--vert)"; }
-    }
-
-    // Fichier de référence pour la détection automatique au retour terrain
-    const tsRef = Date.now();
-    const d = new Date(tsRef);
-    const pad = n => String(n).padStart(2,'0');
-    const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    zip.file("_DATE_REFERENCE.txt", String(tsRef) + "\n" + dateStr + "\n(ne pas supprimer — utilisé par l'outil A2GEO)");
-
-    label.textContent = "Génération du ZIP…";
-    barre.style.width = "95%";
-
-    const contenu = await zip.generateAsync({ type: "blob",
-      compression: "STORE" }); // STORE = pas de compression, plus rapide pour des PDFs
-    barre.style.width = "100%";
-
-    // Déclencher le téléchargement
-    // Sur iOS : Web Share API → feuille de partage → "Enregistrer dans Fichiers" → dossier choisi par l'utilisateur
-    // Fallback : download classique (bureau / Android)
-    const nomZip = `terrain_${num}.zip`;
-    const zipFile = new File([contenu], nomZip, { type: "application/zip" });
-    let partage = false;
-    if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
-      try {
-        await navigator.share({ files: [zipFile], title: nomZip });
-        partage = true;
-      } catch(shareErr) {
-        // L'utilisateur a annulé ou share a échoué → fallback download
-        if (shareErr.name !== "AbortError") console.warn("Share échoué:", shareErr);
+    // 1) Récupérer les fichiers du Drive (une seule fois : un 2ᵉ appui réutilise la mémoire)
+    if (fichiersPrets.length !== fichiersTerrain.length) {
+      btn.innerHTML = '<span class="spinner"></span>&nbsp;Téléchargement…';
+      fichiersPrets = [];
+      const total = fichiersTerrain.length;
+      for (let i = 0; i < total; i++) {
+        const f = fichiersTerrain[i];
+        label.textContent = `Téléchargement ${i + 1}/${total} — ${f.name}`;
+        barre.style.width = Math.round((i / total) * 100) + "%";
+        const r = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`,
+          { headers: { Authorization: "Bearer " + accessToken } }
+        );
+        if (!r.ok) throw new Error(`Erreur ${r.status} pour ${f.name}`);
+        const blob = await r.blob();
+        fichiersPrets.push(new File([blob], f.name, { type: _mimeFichier(f.name, blob.type) }));
+        const item = document.getElementById(`terrain-item-${f.id}`);
+        if (item) item.classList.add("ouvert");
       }
-    }
-    if (!partage) {
-      // Fallback : téléchargement direct (ira dans Téléchargements)
-      const url = URL.createObjectURL(contenu);
-      const a   = document.createElement("a");
-      a.href     = url;
-      a.download = nomZip;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      barre.style.width = "100%";
     }
 
-    label.textContent = `✅ ZIP prêt — ${total} fichier(s)`;
-    btn.innerHTML = "✅&nbsp; ZIP téléchargé";
-    btn.style.background = "var(--vert)";
+    // 2) Ouvrir la feuille de partage iOS avec tous les fichiers
+    const nb = fichiersPrets.length;
+    const res = await _partagerFichiers(fichiersPrets);
+
+    if (res === "ok") {
+      label.textContent = `✅ ${nb} document(s) envoyé(s) vers Fichiers`;
+      btn.innerHTML = "✅&nbsp; Documents enregistrés";
+    } else if (res === "annule") {
+      label.textContent = `${nb} document(s) prêts — appuyez de nouveau pour les enregistrer`;
+      btn.innerHTML = `📂&nbsp; Enregistrer dans Fichiers (${nb})`;
+    } else if (res === "geste") {
+      label.textContent = `✅ ${nb} document(s) téléchargés — appuyez sur le bouton pour les enregistrer dans Fichiers`;
+      btn.innerHTML = `📂&nbsp; Enregistrer dans Fichiers (${nb})`;
+    } else {
+      label.textContent = "Envoi direct impossible : un fichier ZIP est proposé à la place (à dézipper dans Fichiers).";
+      await _envoyerEnZip(fichiersPrets, num);
+      btn.innerHTML = "✅&nbsp; ZIP envoyé";
+    }
+    btn.disabled = false;
 
   } catch(e) {
     label.textContent = "❌ Erreur : " + e.message;
     btn.disabled = false;
-    btn.innerHTML = "📦&nbsp; Tout télécharger en ZIP";
+    btn.innerHTML = "📥&nbsp; Télécharger les documents";
   }
 }
 
@@ -910,7 +814,7 @@ async function chargerFichiers() {
     errEl.textContent = "⚠️ Format invalide — ex : 2026_099"; return;
   }
   errEl.textContent = "";
-  _resetBoutonZip();
+  _resetBoutonTelechargement();
   const btn = document.getElementById("btn-charger");
   btn.innerHTML = '<span class="spinner" style="border-top-color:white;border-color:rgba(0,0,0,.2)"></span>';
   btn.disabled = true;
@@ -961,22 +865,23 @@ function reinitialiser() {
   document.getElementById("carte-terrain").classList.add("hidden");
   document.getElementById("carte-resultats").classList.add("hidden");
   document.getElementById("lbl-dossier-err").textContent = "";
-  fichiersTerrain = []; selectionnesTerrain.clear();
+  fichiersTerrain = []; fichiersPrets = [];
   dossierAffaireId = null; dossierScanId = null;
   ongletActif = "terrain";
-  _resetBoutonZip();
+  _resetBoutonTelechargement();
   document.getElementById("inp-num").focus();
 }
 
-function _resetBoutonZip() {
-  const btn = document.getElementById("btn-zip");
+function _resetBoutonTelechargement() {
+  fichiersPrets = [];
+  const btn = document.getElementById("btn-telecharger");
   if (!btn) return;
   btn.disabled = false;
-  btn.innerHTML = "📦&nbsp; Télécharger tout en ZIP";
+  btn.innerHTML = "📥&nbsp; Télécharger les documents";
   btn.style.background = "";
-  document.getElementById("zip-progress").classList.add("hidden");
-  document.getElementById("zip-barre").style.width = "0%";
-  document.getElementById("zip-label").textContent = "";
+  document.getElementById("dl-progress").classList.add("hidden");
+  document.getElementById("dl-barre").style.width = "0%";
+  document.getElementById("dl-label").textContent = "";
 }
 
 // Parse une date ISO "yyyy-MM-ddTHH:MM:SS" → timestamp ms
