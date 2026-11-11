@@ -328,6 +328,33 @@
       automatiquement renommés (<code>_sign</code> / <code>_sign_a-verifier</code>) selon leur contenu.
     </div>
 
+    <!-- ── Section TABLEAU DE BORNAGE SIGNÉ (HTML interactif verrouillé) ── -->
+    <div class="section-titre">📐 Tableau de bornage signé (interactif)</div>
+
+    <div class="bloc-action">
+      <h3>Envoyer le tableau signé → Drive <code>3-SCANS_terrain</code></h3>
+      <p>Fichier attendu, enregistré dans <strong>Fichiers › Téléchargements</strong> :<br>
+         <code>Tableau-BO_<span class="num-dossier-lbl"></span>_sign.html</code></p>
+      <label class="upload-zone" for="inp-tableau-html">
+        <input type="file" id="inp-tableau-html" accept=".html,.htm,text/html"
+               onchange="onTableauHtmlChange(this)">
+        <div style="font-size:36px;margin-bottom:8px;">📐</div>
+        <div style="font-weight:700;color:var(--bleu);font-size:15px;">Sélectionner le tableau de bornage signé</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;">
+          Parcourir (dossier Téléchargements) ou glisser-déposer le fichier ici
+        </div>
+      </label>
+      <div id="info-tableau-html" class="hidden"></div>
+      <div id="upload-tableau-actions" style="margin-top:10px;">
+        <button class="btn btn-success" id="btn-upload-tableau" onclick="lancerUploadTableau()" disabled
+                style="width:100%;justify-content:center;">
+          ☁️&nbsp; Uploader le tableau → Drive (3-SCANS_terrain)
+        </button>
+      </div>
+      <p id="upload-tableau-label" style="font-size:12px;color:#666;margin-top:6px;text-align:center;"></p>
+      <div id="upload-tableau-resultats" class="hidden" style="margin-top:10px;"></div>
+    </div>
+
     <!-- ── Section PHOTOS ── -->
     <div class="section-titre">📷 Photos (pellicule iPad)</div>
 
@@ -461,6 +488,7 @@ let accessToken = null;
 let fichiersTerrain = [];
 let dossierAffaireId = null;
 let dossierScanId    = null;
+let affaireChargee   = "";   // n° de l'affaire dont le dossier Drive est effectivement chargé
 let ongletActif = "terrain";
 
 // ── Cache token en sessionStorage ────────────────────────────────────────────
@@ -814,6 +842,12 @@ async function chargerFichiers() {
     errEl.textContent = "⚠️ Format invalide — ex : 2026_099"; return;
   }
   errEl.textContent = "";
+  // Dès qu'un chargement démarre, l'ancienne affaire n'est plus valable : si celui-ci échoue,
+  // aucun envoi (photos, PDF, tableau) ne doit pouvoir partir vers un dossier d'une autre affaire.
+  affaireChargee = "";
+  dossierAffaireId = null; dossierScanId = null;
+  document.getElementById("zone-tabs").classList.add("hidden");
+  _resetTableauHtml();
   _resetBoutonTelechargement();
   const btn = document.getElementById("btn-charger");
   btn.innerHTML = '<span class="spinner" style="border-top-color:white;border-color:rgba(0,0,0,.2)"></span>';
@@ -828,6 +862,7 @@ async function chargerFichiers() {
     // Nouvelle affaire chargée : ne pas garder l'état de la précédente
     dossierScanId = null;
     _contenuRef = "";
+    affaireChargee = num;
 
     fichiersTerrain = await chargerFichiersTerrain(dossierAffaireId);
     // Activer la barre DÉBUT/FIN
@@ -1250,6 +1285,12 @@ async function lancerUploadPhotos() {
   const label    = document.getElementById("upload-photos-label");
   const resultats = document.getElementById("upload-photos-resultats");
 
+  if (!affaireChargee || !dossierAffaireId) {
+    resultats.innerHTML = `<div class="info-alerte">⚠️ Chargez d'abord l'affaire (bouton 🔍 Charger en haut de la page).</div>`;
+    resultats.classList.remove("hidden");
+    return;
+  }
+
   btn.disabled = true;
   progress.classList.remove("hidden");
   resultats.innerHTML = "";
@@ -1335,6 +1376,12 @@ async function lancerUploadPdfs() {
   const label    = document.getElementById("upload-pdfs-label");
   const resultats = document.getElementById("upload-pdfs-resultats");
 
+  if (!affaireChargee || !dossierAffaireId) {
+    resultats.innerHTML = `<div class="info-alerte">⚠️ Chargez d'abord l'affaire (bouton 🔍 Charger en haut de la page).</div>`;
+    resultats.classList.remove("hidden");
+    return;
+  }
+
   btn.disabled = true;
   progress.classList.remove("hidden");
   resultats.innerHTML = "";
@@ -1376,6 +1423,107 @@ async function lancerUploadPdfs() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── Tableau de bornage signé (HTML interactif verrouillé) → Drive 3-SCANS_terrain ──
+// Une page web ne peut pas parcourir « Téléchargements » : l'utilisateur choisit (ou glisse) le
+// fichier, et l'appli vérifie par son NOM qu'il s'agit bien du tableau signé de l'affaire chargée.
+let fichierTableau = null;
+
+function _echapper(t) {
+  return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function _nomTableauAttendu(num) { return `Tableau-BO_${num}_sign.html`; }
+
+// Tolère la casse (Sign/sign) et le suffixe ajouté par iOS en cas de doublon (« … sign 2.html », « …(1).html »)
+function _verifierNomTableau(nom, num) {
+  const n = nom.toLowerCase();
+  if (!/\.html?$/.test(n)) return { ok: false, raison: "ce n'est pas un fichier .html" };
+  const m = n.match(/^tableau-bo_(\d{4}_\d{3})_sign(?:[ \-_(][^.]*)?\.html?$/);
+  if (!m) return { ok: false, raison: "ce n'est pas un tableau de bornage signé (nom attendu : Tableau-BO_AAAA_NNN_sign.html)" };
+  if (m[1] !== num.toLowerCase()) return { ok: false, raison: `c'est le tableau de l'affaire ${m[1].toUpperCase()}, pas celui de ${num}` };
+  return { ok: true };
+}
+
+function onTableauHtmlChange(input) {
+  const f    = input.files && input.files[0];
+  const info = document.getElementById("info-tableau-html");
+  const btn  = document.getElementById("btn-upload-tableau");
+  fichierTableau = null;
+  btn.disabled = true;
+  document.getElementById("upload-tableau-resultats").classList.add("hidden");
+  document.getElementById("upload-tableau-label").textContent = "";
+  if (!f) { info.className = "hidden"; return; }
+
+  if (!affaireChargee) {
+    info.className = "info-alerte";
+    info.innerHTML = "⚠️ Chargez d'abord l'affaire (bouton 🔍 Charger en haut de la page).";
+    return;
+  }
+  const v = _verifierNomTableau(f.name, affaireChargee);
+  if (!v.ok) {
+    info.className = "info-alerte";
+    info.innerHTML = `⚠️ <strong>${_echapper(f.name)}</strong> : ${_echapper(v.raison)}.<br>
+      Choisissez <strong>${_nomTableauAttendu(affaireChargee)}</strong> dans Fichiers › Téléchargements.`;
+    return;
+  }
+  fichierTableau = f;
+  info.className = "info-succes";
+  info.innerHTML = `✅ <strong>${_echapper(f.name)}</strong> (${Math.round(f.size / 1024)} Ko) : c'est bien le tableau de l'affaire
+    <strong>${affaireChargee}</strong>. Il sera envoyé sous le nom <strong>${_nomTableauAttendu(affaireChargee)}</strong>.`;
+  btn.disabled = false;
+}
+
+async function lancerUploadTableau() {
+  const btn   = document.getElementById("btn-upload-tableau");
+  const label = document.getElementById("upload-tableau-label");
+  const res   = document.getElementById("upload-tableau-resultats");
+  if (!affaireChargee || !dossierAffaireId) { label.textContent = "⚠️ Chargez d'abord l'affaire."; return; }
+  if (!fichierTableau) return;
+  const nomCible = _nomTableauAttendu(affaireChargee);
+
+  btn.disabled = true;
+  res.innerHTML = "";
+  label.textContent = "Envoi en cours…";
+  try {
+    const scanId = await _obtenirDossierScans();
+    const r = await uploaderAvecConfirmation(fichierTableau, nomCible, scanId);
+    if (r === "skip") {
+      label.textContent = "";
+      res.innerHTML = `<div class="info-alerte">⏭️ Non envoyé : <strong>${nomCible}</strong> existe déjà sur le Drive et n'a pas été écrasé.</div>`;
+    } else {
+      label.textContent = "✅ Tableau envoyé";
+      res.innerHTML = `
+        <div class="info-succes">✅ <strong>${nomCible}</strong> envoyé dans <strong>${DOSSIER_DESTINATION}</strong>.</div>
+        <div style="margin-top:10px;padding:12px 14px;border-radius:8px;background:#FDE8E8;border:1px solid #f5c6c6;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:20px;line-height:1.2;">🗑️</span>
+          <div>
+            <div style="font-weight:700;font-size:14px;color:#7B1B1B;margin-bottom:4px;">Upload terminé — pensez à supprimer le tableau de l'iPad</div>
+            <div style="font-size:13px;color:#555;">Ouvrez l'app <strong>Fichiers</strong> → <em>Téléchargements</em> → appui long sur le fichier → Supprimer.</div>
+            <div style="font-size:12px;color:#888;margin-top:4px;">💡 Pensez à vider la corbeille de l'iPad (Fichiers › Récemment supprimés) et celle de Google Drive régulièrement, une fois par semaine.</div>
+          </div>
+        </div>`;
+    }
+    res.classList.remove("hidden");
+  } catch (e) {
+    label.textContent = "❌ Erreur : " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _resetTableauHtml() {
+  fichierTableau = null;
+  const inp = document.getElementById("inp-tableau-html");
+  if (inp) inp.value = "";
+  const info = document.getElementById("info-tableau-html");
+  if (info) info.className = "hidden";
+  const btn = document.getElementById("btn-upload-tableau");
+  if (btn) btn.disabled = true;
+  const label = document.getElementById("upload-tableau-label");
+  if (label) label.textContent = "";
+  const res = document.getElementById("upload-tableau-resultats");
+  if (res) { res.innerHTML = ""; res.classList.add("hidden"); }
 }
 
 // ── Afficher liste de fichiers avec toggle coche/décoche ──────────────────────
