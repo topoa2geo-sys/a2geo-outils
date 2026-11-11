@@ -206,7 +206,7 @@
     <p>Préparer le terrain · Retour et upload Drive</p>
   </div>
   <div style="text-align:right;opacity:.75;font-size:11px;line-height:1.5;flex-shrink:0;">
-    <div style="font-weight:700;">v3.0 · rév. 14</div>
+    <div style="font-weight:700;">v3.0 · rév. 15</div>
     <div id="version-date">—</div>
   </div>
 </header>
@@ -326,6 +326,24 @@
       Transfère les photos et documents scannés (PDF) créés pendant l'intervention
       (<strong><span class="num-dossier-lbl"></span></strong>) vers Drive. Les PDF sont
       automatiquement renommés (<code>_sign</code> / <code>_sign_a-verifier</code>) selon leur contenu.
+    </div>
+
+    <!-- ── Ouvrir le tableau interactif (l'aperçu de Fichiers n'exécute pas la page) ── -->
+    <div class="section-titre">📐 Tableau de bornage interactif</div>
+
+    <div class="bloc-action">
+      <h3>Ouvrir le tableau pour le remplir</h3>
+      <p>Dans <strong>Fichiers</strong>, l'aperçu d'un fichier .html n'exécute pas la page : le tableau y est vide.
+         Choisissez ici le fichier <code>Tableau-BO_<span class="num-dossier-lbl"></span>_interactif.html</code>
+         pour l'ouvrir dans Safari, où il fonctionne.</p>
+      <label class="upload-zone" for="inp-tableau-ouvrir">
+        <input type="file" id="inp-tableau-ouvrir" accept=".html,.htm,text/html"
+               onchange="onTableauOuvrirChange(this)">
+        <div style="font-size:36px;margin-bottom:8px;">📂</div>
+        <div style="font-weight:700;color:var(--bleu);font-size:15px;">Choisir le tableau à ouvrir</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;">Parcourir (Téléchargements) ou glisser-déposer</div>
+      </label>
+      <div id="zone-ouvrir-tableau" class="hidden" style="margin-top:10px;"></div>
     </div>
 
     <!-- ── Section TABLEAU DE BORNAGE SIGNÉ (HTML interactif verrouillé) ── -->
@@ -1510,6 +1528,37 @@ async function lancerUploadTableau() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── Ouvrir le tableau interactif dans Safari (page blob : le JavaScript s'exécute) ──
+let _urlTableauOuvert = null;
+function onTableauOuvrirChange(input) {
+  const f   = input.files && input.files[0];
+  const zone = document.getElementById("zone-ouvrir-tableau");
+  if (_urlTableauOuvert) { try { URL.revokeObjectURL(_urlTableauOuvert); } catch (e) {} _urlTableauOuvert = null; }
+  if (!f) { zone.className = "hidden"; zone.innerHTML = ""; return; }
+  if (!/\.html?$/i.test(f.name)) {
+    zone.className = "info-alerte";
+    zone.innerHTML = `⚠️ <strong>${_echapper(f.name)}</strong> n'est pas un fichier .html.`;
+    return;
+  }
+  const lu = new FileReader();
+  lu.onerror = () => { zone.className = "info-alerte"; zone.innerHTML = "⚠️ Lecture du fichier impossible."; };
+  lu.onload = () => {
+    const blob = new Blob([lu.result], { type: "text/html;charset=utf-8" });
+    _urlTableauOuvert = URL.createObjectURL(blob);
+    let avert = "";
+    const m = f.name.match(/(\d{4}_\d{3})/);
+    if (affaireChargee && m && m[1] !== affaireChargee) {
+      avert = `<div class="info-alerte" style="margin-bottom:8px;">⚠️ Ce fichier porte le n° ${_echapper(m[1])}, l'affaire chargée est ${_echapper(affaireChargee)}.</div>`;
+    }
+    zone.className = "";
+    zone.innerHTML = `${avert}<a class="btn btn-success" href="${_urlTableauOuvert}" target="_blank" rel="noopener"
+      style="width:100%;justify-content:center;text-decoration:none;">📐&nbsp; Ouvrir ${_echapper(f.name)}</a>
+      <p style="font-size:12px;color:#666;margin-top:6px;">Le tableau s'ouvre dans un nouvel onglet Safari. Après « Verrouiller », le fichier signé est téléchargé :
+      revenez ici (onglet précédent) pour l'envoyer vers le Drive.</p>`;
+  };
+  lu.readAsText(f);
 }
 
 function _resetTableauHtml() {
